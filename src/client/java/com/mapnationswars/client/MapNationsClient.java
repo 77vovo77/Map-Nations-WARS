@@ -15,6 +15,7 @@ import com.mapnationswars.MapNationsMod;
 import com.mapnationswars.network.MarkersSyncPayload;
 import com.mapnationswars.network.NationsSyncPayload;
 import com.mapnationswars.network.PlayersPayload;
+import com.mapnationswars.network.ProvincesSyncPayload;
 import com.mapnationswars.network.StatusPayload;
 import com.mapnationswars.network.TerrainTilesPayload;
 
@@ -56,6 +57,9 @@ public class MapNationsClient implements ClientModInitializer {
 
 		ClientPlayNetworking.registerGlobalReceiver(MarkersSyncPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> ClientMarkers.apply(payload)));
+
+		ClientPlayNetworking.registerGlobalReceiver(ProvincesSyncPayload.TYPE, (payload, context) ->
+				context.client().execute(() -> ClientMarkers.applyProvinces(payload)));
 
 		ClientPlayNetworking.registerGlobalReceiver(TerrainTilesPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> MapData.applyTiles(context.client(), payload)));

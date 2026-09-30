@@ -12,17 +12,60 @@ import com.mapnationswars.network.MarkersSyncPayload;
 
 /** The markers this player is allowed to see (the server already filtered them). */
 public final class ClientMarkers {
+	/** Players' markers plus the provinces of the world (shown like settlements). */
 	private static List<MarkerData> markers = List.of();
+	private static List<MarkerData> playerMarkers = List.of();
+	private static List<MarkerData> provinceMarkers = List.of();
 
 	private ClientMarkers() {
 	}
 
 	static void apply(MarkersSyncPayload payload) {
-		markers = payload.markers();
+		playerMarkers = payload.markers();
+		rebuild();
+	}
+
+	/** Map Nations WARS: every province becomes a settlement on the map. */
+	static void applyProvinces(com.mapnationswars.network.ProvincesSyncPayload payload) {
+		List<MarkerData> list = new java.util.ArrayList<>();
+
+		for (com.mapnationswars.nation.ProvinceData p : payload.provinces()) {
+			MarkerData m = new MarkerData(p.id);
+			m.province = p;
+			m.owner = new UUID(0, 0);
+			m.ownerName = p.mayorName;
+			m.nation = p.nation;
+			m.dimension = p.dimension;
+			m.x = p.x;
+			m.z = p.z;
+			m.type = switch (p.type) {
+				case VILLAGE -> p.abandoned ? MarkerType.DANGER : (p.capital ? MarkerType.CAPITAL : (p.population >= 12 ? MarkerType.CITY : MarkerType.VILLAGE));
+				case OUTPOST -> MarkerType.FORT;
+				case MANSION -> p.capital ? MarkerType.CAPITAL : MarkerType.CASTLE;
+				case BASTION -> p.capital ? MarkerType.CAPITAL : MarkerType.CASTLE;
+			};
+			m.label = p.title();
+			m.visibility = MarkerType.PUBLIC;
+			m.area.addAll(p.area);
+			m.population = p.population;
+			list.add(m);
+		}
+
+		provinceMarkers = list;
+		rebuild();
+	}
+
+	private static void rebuild() {
+		List<MarkerData> all = new java.util.ArrayList<>(provinceMarkers.size() + playerMarkers.size());
+		all.addAll(provinceMarkers);
+		all.addAll(playerMarkers);
+		markers = all;
 	}
 
 	static void clear() {
 		markers = List.of();
+		playerMarkers = List.of();
+		provinceMarkers = List.of();
 	}
 
 	public static List<MarkerData> all() {
@@ -53,7 +96,7 @@ public final class ClientMarkers {
 		MarkerData best = null;
 
 		for (MarkerData m : markers) {
-			if (m.type.settlement && m.dimension.equals(dimension) && m.areaContains(chunkX, chunkZ)
+			if ((m.type.settlement || m.province != null) && m.dimension.equals(dimension) && m.areaContains(chunkX, chunkZ)
 					&& (best == null || m.type.ordinal() < best.type.ordinal())) {
 				best = m;
 			}

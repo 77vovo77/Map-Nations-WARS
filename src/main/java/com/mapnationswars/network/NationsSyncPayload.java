@@ -34,13 +34,32 @@ public record NationsSyncPayload(List<NationData> nations, List<Claim> claims, L
 			n.write(buf);
 		}
 
-		buf.writeVarInt(this.claims.size());
+		// claims, grouped by dimension, with small numbers (there can be many thousands of them)
+		java.util.Map<UUID, Integer> index = new java.util.HashMap<>();
+
+		for (int i = 0; i < this.nations.size(); i++) {
+			index.put(this.nations.get(i).id, i);
+		}
+
+		java.util.Map<String, List<Claim>> byDim = new java.util.LinkedHashMap<>();
 
 		for (Claim c : this.claims) {
-			buf.writeUtf(c.dimension());
-			buf.writeInt(c.chunkX());
-			buf.writeInt(c.chunkZ());
-			NationData.writeUuid(buf, c.nation());
+			if (index.containsKey(c.nation())) {
+				byDim.computeIfAbsent(c.dimension(), d -> new ArrayList<>()).add(c);
+			}
+		}
+
+		buf.writeVarInt(byDim.size());
+
+		for (java.util.Map.Entry<String, List<Claim>> e : byDim.entrySet()) {
+			buf.writeUtf(e.getKey());
+			buf.writeVarInt(e.getValue().size());
+
+			for (Claim c : e.getValue()) {
+				buf.writeVarInt(zigzag(c.chunkX()));
+				buf.writeVarInt(zigzag(c.chunkZ()));
+				buf.writeVarInt(index.get(c.nation()));
+			}
 		}
 
 		buf.writeVarInt(this.proposals.size());
@@ -68,15 +87,22 @@ public record NationsSyncPayload(List<NationData> nations, List<Claim> claims, L
 			nations.add(NationData.read(buf));
 		}
 
-		int claimCount = buf.readVarInt();
-		List<Claim> claims = new ArrayList<>(claimCount);
+		List<Claim> claims = new ArrayList<>();
+		int dims = buf.readVarInt();
 
-		for (int i = 0; i < claimCount; i++) {
+		for (int d = 0; d < dims; d++) {
 			String dim = buf.readUtf();
-			int x = buf.readInt();
-			int z = buf.readInt();
-			UUID nation = NationData.readUuid(buf);
-			claims.add(new Claim(dim, x, z, nation));
+			int count = buf.readVarInt();
+
+			for (int i = 0; i < count; i++) {
+				int x = unzigzag(buf.readVarInt());
+				int z = unzigzag(buf.readVarInt());
+				int n = buf.readVarInt();
+
+				if (n >= 0 && n < nations.size()) {
+					claims.add(new Claim(dim, x, z, nations.get(n).id));
+				}
+			}
 		}
 
 		int proposalCount = buf.readVarInt();
@@ -98,6 +124,14 @@ public record NationsSyncPayload(List<NationData> nations, List<Claim> claims, L
 		}
 
 		return new NationsSyncPayload(nations, claims, proposals, alliances);
+	}
+
+	private static int zigzag(int v) {
+		return (v << 1) ^ (v >> 31);
+	}
+
+	private static int unzigzag(int v) {
+		return (v >>> 1) ^ -(v & 1);
 	}
 
 	@Override

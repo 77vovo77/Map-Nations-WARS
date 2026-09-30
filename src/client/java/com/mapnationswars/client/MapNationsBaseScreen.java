@@ -30,7 +30,6 @@ abstract class MapNationsBaseScreen extends Screen {
 
 	enum Tab {
 		MAP("Map"),
-		CLAIMS("Claims"),
 		NATIONS("Nations"),
 		ALLIANCES("Alliances");
 
@@ -134,7 +133,6 @@ abstract class MapNationsBaseScreen extends Screen {
 
 		Screen next = switch (t) {
 			case MAP -> new MapScreen(false);
-			case CLAIMS -> new MapScreen(true);
 			case NATIONS -> new NationsScreen();
 			case ALLIANCES -> new AlliancesScreen();
 		};

@@ -247,6 +247,43 @@ public final class ServerNations {
 		}
 	}
 
+	// ---------------------------------------------------------------- generated world (AI nations and their land)
+
+	/** Adds a nation made by the world generator. */
+	static void addGeneratedNation(NationData n) {
+		NATIONS.put(n.id, n);
+	}
+
+	/** Gives one chunk to a nation (replaces whoever had it). */
+	static void setOwner(String dimension, long chunkKey, UUID nation) {
+		Map<Long, List<UUID>> dimClaims = CLAIMS.computeIfAbsent(dimension, d -> new HashMap<>());
+
+		if (nation == null) {
+			dimClaims.remove(chunkKey);
+		} else {
+			List<UUID> list = new ArrayList<>();
+			list.add(nation);
+			dimClaims.put(chunkKey, list);
+		}
+	}
+
+	/** Removes a nation that has no land left (made by the world generator). */
+	static void removeGeneratedNation(UUID id) {
+		NationData n = NATIONS.get(id);
+
+		if (n != null && n.ai) {
+			disband(n);
+		}
+	}
+
+	static java.util.Collection<NationData> allNations() {
+		return NATIONS.values();
+	}
+
+	static void saveNow(MinecraftServer server) {
+		save(server);
+	}
+
 	/** A nation by its id (null if it doesn't exist). */
 	static NationData nation(UUID id) {
 		return id == null ? null : NATIONS.get(id);
@@ -379,6 +416,13 @@ public final class ServerNations {
 	}
 
 	private static void toggleClaim(MinecraftServer server, ServerPlayer player, int chunkX, int chunkZ) {
+		// Map Nations WARS: land belongs to provinces (villages, outposts...). It is won, not painted.
+		status(player, "In Map Nations WARS land can't be claimed. Every village already belongs to a nation.", false);
+		return;
+	}
+
+	@SuppressWarnings("unused")
+	private static void toggleClaimRP(MinecraftServer server, ServerPlayer player, int chunkX, int chunkZ) {
 		NationData nation = nationOf(player.getUUID());
 
 		if (nation == null) {
@@ -474,6 +518,13 @@ public final class ServerNations {
 	 * Officer: proposes the rectangle, or takes proposals back.
 	 */
 	private static void claimArea(MinecraftServer server, ServerPlayer player, ClaimAreaPayload a) {
+		// Map Nations WARS: land belongs to provinces (villages, outposts...). It is won, not painted.
+		status(player, "In Map Nations WARS land can't be claimed. Every village already belongs to a nation.", false);
+		return;
+	}
+
+	@SuppressWarnings("unused")
+	private static void claimAreaRP(MinecraftServer server, ServerPlayer player, ClaimAreaPayload a) {
 		NationData nation = nationOf(player.getUUID());
 
 		if (nation == null) {
@@ -642,6 +693,11 @@ public final class ServerNations {
 
 		switch (a.action()) {
 			case NationActionPayload.CREATE -> {
+				if (true) {
+					status(player, "Founding your own nation will need a charter - coming in a later update. For now, explore the nations of the world.", false);
+					return;
+				}
+
 				if (mine != null) {
 					status(player, "Leave your nation before creating a new one.", false);
 					return;
@@ -717,6 +773,11 @@ public final class ServerNations {
 
 				if (target == null) {
 					status(player, "That nation doesn't exist anymore.", false);
+					return;
+				}
+
+				if (target.ai) {
+					status(player, target.name + " doesn't take in new people yet - joining nations comes in a later update.", false);
 					return;
 				}
 
@@ -999,6 +1060,13 @@ public final class ServerNations {
 			}
 		}
 
+		// AI nations: the villagers of all their provinces
+		for (NationData n : NATIONS.values()) {
+			if (n.ai) {
+				n.population = WarsWorld.population(n.id);
+			}
+		}
+
 		List<NationsSyncPayload.Proposal> proposals = new ArrayList<>();
 
 		for (Map.Entry<String, Map<Long, Proposal>> dimEntry : PROPOSALS.entrySet()) {
@@ -1074,7 +1142,15 @@ public final class ServerNations {
 					n.banner = ItemStack.CODEC.parse(ops, o.get("banner")).result().orElse(ItemStack.EMPTY);
 				}
 
-				if (!n.members.isEmpty()) {
+				if (o.has("ai")) {
+					n.ai = o.get("ai").getAsBoolean();
+					n.faction = com.mapnationswars.nation.Faction.byName(o.get("faction").getAsString());
+					n.rulerName = o.get("ruler").getAsString();
+				}
+
+				if (n.ai) {
+					NATIONS.put(n.id, n); // run by the game: no players needed
+				} else if (!n.members.isEmpty()) {
 					if (!n.isMember(n.leader)) {
 						n.leader = n.members.get(0).id();
 					}
@@ -1189,6 +1265,12 @@ public final class ServerNations {
 
 			if (!n.banner.isEmpty()) {
 				ItemStack.CODEC.encodeStart(ops, n.banner).result().ifPresent(json -> o.add("banner", json));
+			}
+
+			if (n.ai) {
+				o.addProperty("ai", true);
+				o.addProperty("faction", n.faction.name());
+				o.addProperty("ruler", n.rulerName);
 			}
 
 			nations.add(o);

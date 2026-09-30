@@ -124,7 +124,7 @@ public class MapScreen extends MapNationsBaseScreen {
 	}
 
 	public MapScreen(boolean claimMode) {
-		super(claimMode ? Tab.CLAIMS : Tab.MAP);
+		super(Tab.MAP); // WARS has no Claims tab: land belongs to provinces
 		this.claimMode = claimMode;
 
 		if (!savedFollow) {
@@ -365,7 +365,7 @@ public class MapScreen extends MapNationsBaseScreen {
 		// every settlement's borders (View menu option)
 		if (showSettlementBorders && this.editingArea == null) {
 			for (MarkerData m : ClientMarkers.all()) {
-				if (m.dimension.equals(dim) && m.type.settlement && !m.area.isEmpty()) {
+				if (m.dimension.equals(dim) && (m.type.settlement || m.province != null) && !m.area.isEmpty()) {
 					this.drawArea(graphics, m.area, 0xFFD54F, false);
 				}
 			}
@@ -375,7 +375,7 @@ public class MapScreen extends MapNationsBaseScreen {
 
 		if (this.editingArea != null) {
 			this.drawArea(graphics, this.workingArea, 0xFFD54F, true);
-		} else if (hoveredMarker != null && hoveredMarker.type.settlement && !hoveredMarker.area.isEmpty()) {
+		} else if (hoveredMarker != null && (hoveredMarker.type.settlement || hoveredMarker.province != null) && !hoveredMarker.area.isEmpty()) {
 			this.drawArea(graphics, hoveredMarker.area, 0xFFD54F, false); // show the settlement's borders
 		}
 		Dot hoveredPlayer = this.drawPlayers(graphics, player, dim, mouseX, mouseY, overMap);
@@ -955,7 +955,7 @@ public class MapScreen extends MapNationsBaseScreen {
 			int size = this.markerSize(m.type);
 			MarkerIcons.draw(graphics, m, sx, sy, size);
 
-			boolean showName = m.type.settlement ? this.zoom >= 0.18 : (m.type.alwaysPublic ? this.zoom >= 0.5 : this.zoom >= 1.5);
+			boolean showName = (m.type.settlement || m.province != null) ? this.zoom >= 0.18 : (m.type.alwaysPublic ? this.zoom >= 0.5 : this.zoom >= 1.5);
 
 			if (showName) {
 				float scale = switch (m.type) {
@@ -980,6 +980,10 @@ public class MapScreen extends MapNationsBaseScreen {
 
 	/** Can I place this type at all? (only the Capital has a special rule here) */
 	private static String panelProblem(MarkerType type) {
+		if (type.settlement || type == MarkerType.PORT || type == MarkerType.MARKET || type == MarkerType.TEMPLE) {
+			return "In Map Nations WARS the villages and strongholds are already on the map.";
+		}
+
 		if (type.leaderOnly) {
 			NationData mine = ClientNations.myNation();
 			LocalPlayer me = net.minecraft.client.Minecraft.getInstance().player;
@@ -1481,6 +1485,11 @@ public class MapScreen extends MapNationsBaseScreen {
 	}
 
 	private void markerTooltip(GuiGraphicsExtractor graphics, MarkerData m, int mouseX, int mouseY) {
+		if (m.province != null) {
+			this.provinceTooltip(graphics, m.province, mouseX, mouseY);
+			return;
+		}
+
 		RichTooltip tip = new RichTooltip();
 		NationData land = MarkerIcons.owner(m);
 		int titleColor = m.type == MarkerType.CAPITAL ? 0xFFD54F : m.type.color;
@@ -1747,7 +1756,11 @@ public class MapScreen extends MapNationsBaseScreen {
 
 			MarkerData existing = this.markerAt(dim, click.x(), click.y());
 
-			if (existing != null) {
+			if (existing != null && existing.province != null) {
+				if (existing.province.nation != null && ClientNations.get(existing.province.nation) != null) {
+					this.minecraft.gui.setScreen(new NationsScreen(existing.province.nation));
+				}
+			} else if (existing != null) {
 				this.minecraft.gui.setScreen(new MarkerManageScreen(this, existing));
 			} else if (this.claimMode) {
 				// right-click a single chunk in the Claims tab: unclaim it
@@ -2047,6 +2060,33 @@ public class MapScreen extends MapNationsBaseScreen {
 		double heightBlocks = (maxZ - minZ + 1) * 16.0;
 		this.zoom = Mth.clamp(Math.min(this.width * 0.7 / widthBlocks, (this.height - TOP_BAR) * 0.7 / heightBlocks), MIN_ZOOM, MAX_ZOOM);
 		savedZoom = this.zoom;
+	}
+
+	/** A village / outpost / mansion / bastion of the world. */
+	private void provinceTooltip(GuiGraphicsExtractor graphics, com.mapnationswars.nation.ProvinceData p, int mouseX, int mouseY) {
+		RichTooltip tip = new RichTooltip();
+		NationData n = ClientNations.get(p.nation);
+		int color = n != null ? n.color : 0xFFFFFF;
+		tip.text(Component.literal(p.title()).withStyle(style -> style.withColor(color).withBold(true)));
+		tip.text(Component.literal((p.capital ? "Capital - " : "") + p.type.displayName).withColor(p.capital ? 0xFFD54F : 0xAAAAAA));
+
+		if (n != null) {
+			tip.text(Component.literal("Part of ").withColor(0xAAAAAA).append(Component.literal(n.name).withColor(n.color)));
+			tip.text(Component.literal(n.faction.displayName + "  \u00B7  " + n.ideology.displayName).withColor(n.faction.color));
+		}
+
+		if (p.type == com.mapnationswars.nation.ProvinceData.Type.VILLAGE && !p.abandoned) {
+			tip.text(Component.literal("Mayor: ").withColor(0xAAAAAA).append(Component.literal(p.mayorName).withColor(0xFFE0A0)));
+			tip.text(Component.literal("Villagers: " + p.population + "   Land: " + p.chunks + " chunks").withColor(0x9CE0A0));
+		} else if (p.abandoned) {
+			tip.text(Component.literal("Only zombies live here now").withColor(0x88AA66));
+		} else {
+			tip.text(Component.literal("Commander: ").withColor(0xAAAAAA).append(Component.literal(p.mayorName).withColor(0xFFB0A0)));
+			tip.text(Component.literal("Garrison: ~" + p.population + "   Land: " + p.chunks + " chunks").withColor(0xE0B0A0));
+		}
+
+		tip.text(Component.literal("X " + p.x + "  Z " + p.z + "   Right-click: nation page").withColor(0x777777));
+		tip.draw(graphics, this.font, mouseX, mouseY, this.width, this.height);
 	}
 
 	private void allianceTooltip(GuiGraphicsExtractor graphics, AllianceData a, NationData n, int mouseX, int mouseY) {

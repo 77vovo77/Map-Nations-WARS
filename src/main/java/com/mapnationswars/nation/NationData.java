@@ -28,6 +28,11 @@ public final class NationData {
 	public final List<UUID> allyRequests = new ArrayList<>();
 	/** Villagers living in the nation's land (counted by the server). */
 	public int population;
+	/** Run by the game, not by a player. */
+	public boolean ai = false;
+	public Faction faction = Faction.PLAYER;
+	/** The name of an AI nation's ruler (AI nations have no player leader). */
+	public String rulerName = "";
 
 	/** Members with the Officer rank: they can propose new territory. */
 	public final List<UUID> officers = new ArrayList<>();
@@ -68,6 +73,10 @@ public final class NationData {
 	}
 
 	public String leaderName() {
+		if (this.ai) {
+			return this.rulerName;
+		}
+
 		Member m = this.member(this.leader);
 		return m != null ? m.name() : "?";
 	}
@@ -87,6 +96,9 @@ public final class NationData {
 		writeIds(buf, this.allyRequests);
 		buf.writeVarInt(this.population);
 		writeIds(buf, this.officers);
+		buf.writeBoolean(this.ai);
+		buf.writeUtf(this.faction.name());
+		buf.writeUtf(this.rulerName);
 	}
 
 	public static NationData read(RegistryFriendlyByteBuf buf) {
@@ -102,6 +114,9 @@ public final class NationData {
 		readIds(buf, n.allyRequests);
 		n.population = buf.readVarInt();
 		readIds(buf, n.officers);
+		n.ai = buf.readBoolean();
+		n.faction = Faction.byName(buf.readUtf());
+		n.rulerName = buf.readUtf();
 		return n;
 	}
 

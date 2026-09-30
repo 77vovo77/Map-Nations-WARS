@@ -16,6 +16,7 @@ import com.mapnationswars.network.MarkersSyncPayload;
 import com.mapnationswars.network.NationActionPayload;
 import com.mapnationswars.network.NationsSyncPayload;
 import com.mapnationswars.network.PlayersPayload;
+import com.mapnationswars.network.ProvincesSyncPayload;
 import com.mapnationswars.network.StatusPayload;
 import com.mapnationswars.network.TerrainRequestPayload;
 import com.mapnationswars.network.TerrainTilesPayload;
@@ -44,10 +45,12 @@ public class MapNationsMod implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(PlayersPayload.TYPE, PlayersPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(StatusPayload.TYPE, StatusPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MarkersSyncPayload.TYPE, MarkersSyncPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(ProvincesSyncPayload.TYPE, ProvincesSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(TerrainTilesPayload.TYPE, TerrainTilesPayload.CODEC);
 
 		ServerNations.init();
 		ServerAlliances.init();
+		WarsWorld.init();
 		ServerMarkers.init();
 		ServerPopulation.init();
 		TerrainPreview.init();

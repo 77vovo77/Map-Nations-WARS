@@ -331,6 +331,12 @@ public final class ServerMarkers {
 
 		MarkerType type = MarkerType.byName(p.markerType());
 
+		if (type != null && (type.settlement || type == MarkerType.PORT || type == MarkerType.MARKET || type == MarkerType.TEMPLE)) {
+			// Map Nations WARS: cities, villages, castles... are real places in the world, not markers
+			ServerNations.status(player, "In Map Nations WARS the villages and strongholds are already on the map.", false);
+			return;
+		}
+
 		if (type == null) {
 			return;
 		}

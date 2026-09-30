@@ -172,11 +172,7 @@ public class NationsScreen extends PagedScreen {
 		this.layoutFrame();
 
 		switch (this.view) {
-			case OVERVIEW -> {
-				this.contentHeight = 0;
-				this.addRenderableWidget(Button.builder(Component.literal("+ Create Your Nation"), b -> this.startCreate())
-						.pos(this.panelX + this.panelW / 2 - 90, this.viewTop() + (this.viewBottom() - this.viewTop()) / 2 + 4).size(180, 24).build());
-			}
+			case OVERVIEW -> this.contentHeight = 0;
 			case NATION -> this.initNationView();
 			case FORM -> this.initForm();
 		}
@@ -207,7 +203,16 @@ public class NationsScreen extends PagedScreen {
 		int infoY = y;
 		y += 36;
 		com.mapnationswars.nation.AllianceData alliance = ClientNations.allianceOf(n.id);
-		List<String> stats = this.wrap("Members: " + n.members.size() + "   Territory: " + ClientNations.chunkCount(n.id)
+		int provinces = 0;
+
+		for (com.mapnationswars.nation.MarkerData m : ClientMarkers.all()) {
+			if (m.province != null && n.id.equals(m.province.nation)) {
+				provinces++;
+			}
+		}
+
+		List<String> stats = this.wrap((n.ai ? n.faction.displayName + " (AI)   Provinces: " + provinces + "   " : "")
+				+ "Members: " + n.members.size() + "   Territory: " + ClientNations.chunkCount(n.id)
 				+ " chunks   Villagers: " + n.population + (alliance != null ? "   Alliance: " + alliance.name : ""), this.innerW());
 		y += stats.size() * 11 + 3;
 
@@ -280,7 +285,6 @@ public class NationsScreen extends PagedScreen {
 						b -> this.send(NationActionPayload.simple(NationActionPayload.REQUEST_JOIN, nationId))));
 			}
 
-			list.add(new ButtonSpec("+ Create Your Nation", 140, b -> this.startCreate()));
 		} else if (mine.leader.equals(me)) {
 			// leaders handle alliances with other nations
 			String label;
@@ -582,8 +586,9 @@ public class NationsScreen extends PagedScreen {
 			if (mine != null && mine.allies.contains(n.id)) {
 				graphics.text(this.font, "ally", this.listX + this.listW - this.font.width("ally") - 4, y + 14, 0xFF7CFF7C);
 			}
-			graphics.text(this.font, n.ideology.symbol + " " + n.members.size() + (n.members.size() == 1 ? " member" : " members"),
-					textX, y + 14, 0xFFAAAAAA);
+			graphics.text(this.font, n.ai ? n.ideology.symbol + " " + n.faction.displayName
+					: n.ideology.symbol + " " + n.members.size() + (n.members.size() == 1 ? " member" : " members"),
+					textX, y + 14, n.ai ? 0xFF000000 | n.faction.color : 0xFFAAAAAA);
 		}
 
 		graphics.disableScissor();
@@ -597,7 +602,7 @@ public class NationsScreen extends PagedScreen {
 		graphics.centeredText(this.font, "You are not part of any nation yet.", cx, mid - 36, 0xFFFFFFFF);
 		int y = mid - 22;
 
-		for (String line : this.wrap("Create your own, or click a nation on the left to see it and ask to join.", this.panelW - 16)) {
+		for (String line : this.wrap("Every village of the world belongs to a nation. Click one on the left to see it. Joining nations and founding your own come in later updates.", this.panelW - 16)) {
 			graphics.centeredText(this.font, line, cx, y, 0xFFAAAAAA);
 			y += 10;
 		}

@@ -2,7 +2,31 @@
 
 The war version of [Map Nations RP](https://github.com/77vovo77/Map-Nations-RP). It is a separate mod: its own name, save files and settings, so it never mixes with Map Nations RP.
 
-Press **M** to open it. The top bar shows **Map Nations WARS** and four tabs: **Map**, **Claims**, **Nations** and **Alliances**.
+In RP you paint the map yourself. In **WARS** the world is already full of nations run by the game - a mix of Hearts of Iron, Manor Lords and Minecraft. It is built in stages; this is **stage 1: the world of nations**.
+
+## The world of nations (stage 1)
+- When a new world starts, the mod finds the villages, pillager outposts, woodland mansions and (in the Nether) bastions within about 2000 blocks of the middle of the world. This takes a few seconds; a message shows the progress.
+- Every one of them becomes a **province** with a name, its own land around it and a **mayor** (villages) or commander (strongholds).
+- Provinces are grouped into **AI nations**, each with a ruler, ideology and colour:
+  - **Villager nations** - kingdoms, republics, empires... of several villages, plus some villages that are independent on their own.
+  - **Illager nations** - every woodland mansion rules the outposts near it; other outposts form warbands.
+  - **Piglin clans** - the bastions of the Nether.
+  - **Undead hordes** - when a village has only zombie villagers left (an abandoned village), the undead take it over.
+- The mayor is a real villager: when you come close, one villager of the village gets a name tag "Mayor ...". If the mayor dies, a new one is chosen. The number of villagers is counted while someone is near.
+- On the map, villages show as village / city / capital icons with their borders; outposts as forts, mansions and bastions as castles. Hover one for its nation, mayor and population; right-click it to open its nation.
+- **Land can't be claimed** in WARS, and cities / villages / castles can't be placed as markers - they are real places. Other markers (arrows, home, danger...) still work.
+- Founding your own nation and joining nations come in later stages.
+
+## Coming next
+2. Economy: emeralds, food, village income and upkeep, orders (build houses, farms).
+3. Joining nations and ranks, salaries, elections.
+4. Letters and diplomacy.
+5. War: divisions, battles, sieges.
+6. AI nations acting on their own.
+7. Revolts, coups and founding your own nation.
+8. Portals: ruined portals waking up, invasions between the Nether and the Overworld.
+
+Press **M** to open it. The top bar shows **Map Nations WARS** and three tabs: **Map**, **Nations** and **Alliances**.
 
 ## Map tab
 - **The whole world is visible right away** - no exploring needed. The server works out what places you haven't visited look like (height, water, biomes, forests, snow, mountains) and fills them in, starting from the middle of the view. Places you really visit are then drawn exactly, block by block. The filled-in land is saved, so it shows instantly next time.

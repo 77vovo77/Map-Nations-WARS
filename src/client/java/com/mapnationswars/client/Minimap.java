@@ -168,7 +168,7 @@ final class Minimap {
 
 		// settlement borders (cities, villages, castles...)
 		for (MarkerData m : ClientMarkers.all()) {
-			if (!m.dimension.equals(dim) || !m.type.settlement || m.area.isEmpty()) {
+			if (!m.dimension.equals(dim) || !(m.type.settlement || m.province != null) || m.area.isEmpty()) {
 				continue;
 			}
 
@@ -215,7 +215,7 @@ final class Minimap {
 
 		// settlement icons
 		for (MarkerData m : ClientMarkers.all()) {
-			if (!m.dimension.equals(dim) || !m.type.settlement) {
+			if (!m.dimension.equals(dim) || !(m.type.settlement || m.province != null)) {
 				continue;
 			}
 

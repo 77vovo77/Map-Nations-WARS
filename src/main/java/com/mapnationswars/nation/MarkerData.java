@@ -27,6 +27,9 @@ public final class MarkerData {
 	/** Settlements only: villagers living inside its borders (counted by the server). */
 	public int population;
 
+	/** Map Nations WARS: set when this "marker" is really a province (a village or stronghold of the world). */
+	public ProvinceData province;
+
 	public MarkerData(UUID id) {
 		this.id = id;
 	}
