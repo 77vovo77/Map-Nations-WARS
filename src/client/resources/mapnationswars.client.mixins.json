@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.mapnationswars.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"PlayerDisplayNameMixin",
+		"PlayerTabNameMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

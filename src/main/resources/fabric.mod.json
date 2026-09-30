@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"id": "mapnationswars",
+	"version": "${version}",
+	"name": "Map Nations WARS",
+	"description": "Press M for a world map with player heads, the world border and a political map of nations. Create or join nations, claim land and see it on the map.",
+	"authors": [
+		"You"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/mapnationswars/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.mapnationswars.MapNationsMod"
+		],
+		"client": [
+			"com.mapnationswars.client.MapNationsClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "mapnationswars.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

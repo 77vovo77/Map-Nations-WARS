@@ -1,0 +1,31 @@
+# Builds the mod on GitHub's computers every time you upload/change files.
+# The finished mod is under the "Actions" tab -> latest run -> "Artifacts":
+# it is the .jar itself (not a zip), so it downloads ready to use.
+
+name: build
+on: [pull_request, push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build
+      - name: find the mod jar
+        run: echo "JAR=$(ls build/libs/mapnationswars-*.jar | head -n 1)" >> "$GITHUB_ENV"
+      - name: upload the mod jar (as a plain .jar, not zipped)
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ env.JAR }}
+          archive: false
