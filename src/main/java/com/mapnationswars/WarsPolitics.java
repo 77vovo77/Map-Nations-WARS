@@ -315,8 +315,9 @@ public final class WarsPolitics {
 			int n = Math.min(64, amount);
 			ItemStack stack = new ItemStack(Items.EMERALD, n);
 
-			if (!player.getInventory().add(stack)) {
-				player.drop(stack, false);
+			if (!player.getInventory().add(stack) && !stack.isEmpty()) {
+				// inventory full: drop the rest at the player's feet
+				player.level().addFreshEntity(new net.minecraft.world.entity.item.ItemEntity(player.level(), player.getX(), player.getY(), player.getZ(), stack));
 			}
 
 			amount -= n;
