@@ -145,6 +145,11 @@ public class MapScreen extends MapNationsBaseScreen {
 	}
 
 	@Override
+	protected int topBarReserve() {
+		return 116; // View, Center (and zoom when there is room)
+	}
+
+	@Override
 	protected void init() {
 		int x = this.addTabs();
 
@@ -164,6 +169,17 @@ public class MapScreen extends MapNationsBaseScreen {
 		this.addRenderableWidget(Button.builder(Component.literal("Center"), b -> this.followPlayer = true)
 				.pos(x, 6).size(centerW, 20).build());
 		x += centerW + 4;
+
+		// claiming land (1.9): leaders and Ministers
+		if (this.claimMode) {
+			this.addRenderableWidget(Button.builder(Component.literal("\u2714 Done").withColor(0x7CFF7C), b -> this.minecraft.gui.setScreen(new MapScreen(false)))
+					.pos(x, 6).size(50, 20).build());
+			x += 54;
+		} else if (this.mayClaim() && x + 54 <= this.width - 54) {
+			this.addRenderableWidget(Button.builder(Component.literal("\u2690 Claim"), b -> this.minecraft.gui.setScreen(new MapScreen(true)))
+					.pos(x, 6).size(50, 20).build());
+			x += 54;
+		}
 
 		if (!this.claimMode) {
 			// the little arrow on the right edge that opens / closes the marker panel
@@ -301,6 +317,12 @@ public class MapScreen extends MapNationsBaseScreen {
 		savedFollow = false;
 		savedCenterX = x;
 		savedCenterZ = z;
+	}
+
+	private boolean mayClaim() {
+		NationData mine = ClientNations.myNation();
+		UUID me = this.myId();
+		return mine != null && (mine.leader.equals(me) || mine.rankOf(me) >= com.mapnationswars.nation.Ranks.MINISTER);
 	}
 
 	private UUID myId() {
@@ -1205,12 +1227,9 @@ public class MapScreen extends MapNationsBaseScreen {
 			NationData mine = ClientNations.myNation();
 			UUID me = this.minecraft.player != null ? this.minecraft.player.getUUID() : null;
 
-			if (mine != null && me != null && mine.leader.equals(me)) {
-				left = "claim land";
-				right = "remove claim";
-			} else if (mine != null && me != null && mine.isOfficer(me)) {
-				left = "propose land";
-				right = "take proposal back";
+			if (mine != null && me != null && this.mayClaim()) {
+				left = "claim land (2 emeralds a chunk, next to your land)";
+				right = "give land up";
 			} else {
 				left = null;
 				right = null;
@@ -1229,7 +1248,7 @@ public class MapScreen extends MapNationsBaseScreen {
 		List<Component> lines = new ArrayList<>();
 
 		if (left == null) {
-			lines.add(Component.literal("Only a nation's leader (or officer) can claim").withColor(0xFFAAAAAA));
+			lines.add(Component.literal("Only a nation's leader and Ministers claim land").withColor(0xFFAAAAAA));
 		} else {
 			lines.add(Component.literal("Left click / drag: ").withColor(0x7CFF7C).append(Component.literal(left).withColor(0xFFFFFF)));
 			lines.add(Component.literal("Right click / drag: ").withColor(0xFF7C7C).append(Component.literal(right).withColor(0xFFFFFF)));
@@ -2539,8 +2558,8 @@ public class MapScreen extends MapNationsBaseScreen {
 
 		LocalPlayer self = this.minecraft.player;
 
-		if (self != null && !myNation.leader.equals(self.getUUID()) && !myNation.isOfficer(self.getUUID())) {
-			ClientNations.setStatus("Only the " + myNation.ideology.leaderTitle + " claims land. Officers can propose land.", false);
+		if (self != null && !this.mayClaim()) {
+			ClientNations.setStatus("Only the " + myNation.ideology.leaderTitle + " and Ministers claim land.", false);
 			return;
 		}
 
@@ -2627,8 +2646,8 @@ public class MapScreen extends MapNationsBaseScreen {
 
 		LocalPlayer self = this.minecraft.player;
 
-		if (self != null && !mine.leader.equals(self.getUUID()) && !mine.isOfficer(self.getUUID())) {
-			ClientNations.setStatus("Only the " + mine.ideology.leaderTitle + " claims land. Officers can propose land.", false);
+		if (self != null && !this.mayClaim()) {
+			ClientNations.setStatus("Only the " + mine.ideology.leaderTitle + " and Ministers claim land.", false);
 			return;
 		}
 

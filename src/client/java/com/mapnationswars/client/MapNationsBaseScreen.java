@@ -29,16 +29,19 @@ abstract class MapNationsBaseScreen extends Screen {
 	static final int C_TEXT_DIM = 0xFF9AA0A6;
 
 	enum Tab {
-		MAP("Map"),
-		NATIONS("Nations"),
-		ALLIANCES("Alliances"),
-		LETTERS("Letters"),
-		WAR("War");
+		MAP("Map", "Map"),
+		YOU("You", "You"),
+		NATIONS("Nations", "Nations"),
+		ALLIANCES("Alliances", "Allies"),
+		LETTERS("Letters", "Mail"),
+		WAR("War", "War");
 
 		final String label;
+		final String shortLabel;
 
-		Tab(String label) {
+		Tab(String label, String shortLabel) {
 			this.label = label;
+			this.shortLabel = shortLabel;
 		}
 	}
 
@@ -104,13 +107,24 @@ abstract class MapNationsBaseScreen extends Screen {
 		return this.fw < 560;
 	}
 
+	/** Room the screen needs right of the tabs (the map has its buttons there). */
+	protected int topBarReserve() {
+		return 0;
+	}
+
+	/** Tabs share the room that is left, so all six always fit. */
 	private int tabW() {
-		return this.compact() ? 48 : 60;
+		int room = this.fw - 12 - this.titleW() - 6 - this.topBarReserve();
+		return Math.max(30, Math.min(60, room / Tab.values().length - 2));
+	}
+
+	private String tabLabel(Tab t) {
+		return this.font.width(t.label) + 8 <= this.tabW() ? t.label : t.shortLabel;
 	}
 
 	/** On narrow screens the mod name is shortened so all five tabs and the map buttons fit. */
 	private String titleText() {
-		return this.fw < 520 ? "WARS" : TITLE;
+		return this.fw < 600 ? "WARS" : TITLE;
 	}
 
 	private int titleW() {
@@ -124,7 +138,7 @@ abstract class MapNationsBaseScreen extends Screen {
 		this.tabsX = x;
 
 		for (Tab t : Tab.values()) {
-			Button b = this.addRenderableWidget(Button.builder(Component.literal(t.label), btn -> this.openTab(t))
+			Button b = this.addRenderableWidget(Button.builder(Component.literal(this.tabLabel(t)), btn -> this.openTab(t))
 					.pos(x, this.oy + 6).size(this.tabW(), 20).build());
 			b.active = t != this.tab; // the open tab is shown as pressed
 			x += this.tabW() + 2;
@@ -140,6 +154,7 @@ abstract class MapNationsBaseScreen extends Screen {
 
 		Screen next = switch (t) {
 			case MAP -> new MapScreen(false);
+			case YOU -> new CareerScreen();
 			case NATIONS -> new NationsScreen();
 			case ALLIANCES -> new AlliancesScreen();
 			case LETTERS -> new LettersScreen();

@@ -142,6 +142,25 @@ public final class WarsDiplomacy {
 		UUID me = player.getUUID();
 		NationData mine = ServerNations.nationOf(me);
 
+		// a letter from one person (1.9): anyone can write those
+		if (a.action() == LetterActionPayload.SEND && a.personal()) {
+			NationData to;
+
+			try {
+				to = ServerNations.nation(UUID.fromString(a.target()));
+			} catch (IllegalArgumentException e) {
+				to = null;
+			}
+
+			if (to == null) {
+				ServerNations.status(player, "Pick a nation to write to.", false);
+				return;
+			}
+
+			WarsPeople.sendPersonal(server, player, to, LetterData.Type.byName(a.letterType()), Math.max(0, a.amount()), a.text());
+			return;
+		}
+
 		if (!canWrite(mine, me)) {
 			ServerNations.status(player, "Only your nation's leader and its Ministers can handle letters.", false);
 			return;
@@ -176,6 +195,12 @@ public final class WarsDiplomacy {
 		}
 
 		LetterData.Type type = LetterData.Type.byName(a.letterType());
+
+		if (!type.forNations) {
+			ServerNations.status(player, "That is a letter you write for yourself, not for your nation.", false);
+			return;
+		}
+
 		Relations.Relation r = relation(from.id, to.id);
 		int amount = Math.max(0, a.amount());
 		String problem = switch (type) {
@@ -241,8 +266,22 @@ public final class WarsDiplomacy {
 			return;
 		}
 
-		NationData from = ServerNations.nation(l.from);
+		if (l.personal && l.from.equals(player.getUUID())) {
+			ServerNations.status(player, "You can't answer your own letter.", false);
+			return;
+		}
+
 		l.status = accept ? LetterData.Status.ACCEPTED : LetterData.Status.REFUSED;
+
+		if (l.personal) {
+			WarsPeople.answered(server, l, accept);
+			save();
+			ServerNations.saveNow(server);
+			ServerNations.broadcast(server);
+			return;
+		}
+
+		NationData from = ServerNations.nation(l.from);
 		l.reply = (accept ? "Accepted" : "Refused") + " by " + player.getName().getString() + ".";
 		apply(server, l, accept);
 
@@ -316,6 +355,8 @@ public final class WarsDiplomacy {
 				}
 			}
 			case WAR -> startWar(server, from, to, true);
+			default -> {
+			}
 		}
 	}
 
@@ -460,6 +501,15 @@ public final class WarsDiplomacy {
 		save();
 	}
 
+	static void addLetter(LetterData l) {
+		LETTERS.add(l);
+		trim();
+	}
+
+	static void saveNow() {
+		save();
+	}
+
 	/** Is a letter of this type from a to b still waiting for an answer? */
 	static boolean pendingLetter(UUID from, UUID to, LetterData.Type type) {
 		for (LetterData l : LETTERS) {
@@ -482,7 +532,7 @@ public final class WarsDiplomacy {
 			case ALLIANCE -> o >= 40;
 			case PEACE -> WarsAI.acceptsPeace(server, to, from, o) || stronger;
 			case TRIBUTE -> strength(from) > strength(to) * 2 && o > -70;
-			case WAR -> true;
+			default -> true;
 		};
 
 		l.status = accept ? LetterData.Status.ACCEPTED : LetterData.Status.REFUSED;
@@ -512,7 +562,7 @@ public final class WarsDiplomacy {
 				case ALLIANCE -> accept ? "It is an honour. From today we stand together." : "We are not close enough for an alliance. Not yet.";
 				case PEACE -> accept ? "Enough blood has been spilled. Peace it is." : "No peace while our grievances remain!";
 				case TRIBUTE -> accept ? "We... have no choice. Take your emeralds, and leave us be." : "You will get nothing from us but steel!";
-				case WAR -> "So be it.";
+				default -> "So be it.";
 			};
 		};
 
@@ -588,13 +638,12 @@ public final class WarsDiplomacy {
 		NationData mine = ServerNations.nationOf(player.getUUID());
 		List<LetterData> letters = new ArrayList<>();
 
-		if (mine != null) {
-			for (int i = LETTERS.size() - 1; i >= 0 && letters.size() < 80; i--) {
-				LetterData l = LETTERS.get(i);
+		for (int i = LETTERS.size() - 1; i >= 0 && letters.size() < 80; i--) {
+			LetterData l = LETTERS.get(i);
+			boolean ours = mine != null && (mine.id.equals(l.to) || (!l.personal && mine.id.equals(l.from)));
 
-				if (mine.id.equals(l.from) || mine.id.equals(l.to)) {
-					letters.add(l);
-				}
+			if (ours || (l.personal && player.getUUID().equals(l.from))) {
+				letters.add(l);
 			}
 		}
 
@@ -637,6 +686,7 @@ public final class WarsDiplomacy {
 				l.day = o.get("day").getAsLong();
 				l.status = LetterData.Status.valueOf(o.get("status").getAsString());
 				l.reply = o.get("reply").getAsString();
+				l.personal = o.has("personal") && o.get("personal").getAsBoolean();
 				LETTERS.add(l);
 			}
 
@@ -688,6 +738,7 @@ public final class WarsDiplomacy {
 			o.addProperty("day", l.day);
 			o.addProperty("status", l.status.name());
 			o.addProperty("reply", l.reply);
+			o.addProperty("personal", l.personal);
 			letters.add(o);
 		}
 

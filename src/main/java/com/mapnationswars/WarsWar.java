@@ -304,7 +304,7 @@ public final class WarsWar {
 
 		NationData n = ServerNations.nation(d.nation);
 
-		if (!canCommand(n, me) && !player.isCreative()) {
+		if (!canCommand(n, me)) {
 			ServerNations.status(player, "Only Officers, Ministers and the leader of " + (n != null ? n.name : "its nation") + " command its armies.", false);
 			return;
 		}
@@ -360,7 +360,7 @@ public final class WarsWar {
 				ServerNations.status(player, d.name + " stops and holds its ground.", true);
 			}
 			case ArmyActionPayload.DISBAND -> {
-				if (!canRaise(n, me) && !player.isCreative()) {
+				if (!canRaise(n, me)) {
 					ServerNations.status(player, "Only Ministers and the leader can disband an army.", false);
 					return;
 				}
@@ -398,7 +398,7 @@ public final class WarsWar {
 	static void raise(MinecraftServer server, ServerPlayer player, ProvinceData p, DivisionData.Kind kind) {
 		NationData n = ServerNations.nation(p.nation);
 
-		if (!canRaise(n, player.getUUID()) && !player.isCreative()) {
+		if (!canRaise(n, player.getUUID())) {
 			ServerNations.status(player, "Only Ministers and the leader of " + (n != null ? n.name : "this province's nation") + " can raise armies.", false);
 			return;
 		}
@@ -1202,6 +1202,8 @@ public final class WarsWar {
 			if (kn != null) {
 				WarsPolitics.addMerit(server, kn, killer.getUUID(), 3);
 			}
+
+			WarsDuties.onEnemyKilled(server, killer);
 		}
 	}
 

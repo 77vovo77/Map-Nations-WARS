@@ -22,7 +22,7 @@ import com.mapnationswars.network.VillageActionPayload;
  */
 public class VillageScreen extends Screen {
 	private static final int W = 300;
-	private static final int H = 288;
+	private static final int H = 300;
 	/** Costs and effects, same as the server (WarsEconomy.Build). */
 	private static final String[][] BUILDS = {
 		{"HOUSE", "House", "12", "+2 beds"},
@@ -54,7 +54,7 @@ public class VillageScreen extends Screen {
 
 		NationData n = ClientNations.get(p.nation);
 		UUID me = this.minecraft.player.getUUID();
-		return this.minecraft.player.isCreative() || (n != null && (n.leader.equals(me)
+		return (n != null && (n.leader.equals(me)
 				|| (n.isMember(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.MINISTER)));
 	}
 
@@ -105,8 +105,8 @@ public class VillageScreen extends Screen {
 		boolean village = p.type == ProvinceData.Type.VILLAGE && !p.abandoned;
 		int y = this.top + h - 80;
 
-		if (village) {
-			// orders
+		if (village && this.canOrder(p)) {
+			// orders: only the village's own leaders
 			int bw = (w - 24 - 8) / 3;
 
 			for (int i = 0; i < BUILDS.length; i++) {
@@ -156,11 +156,28 @@ public class VillageScreen extends Screen {
 			}
 		}
 
-		// founding a nation here (stage 7): for players without a nation, at the mayor
-		if (village && mine == null && ClientNations.myNation() == null && this.atMayor) {
-			Button found = this.addRenderableWidget(Button.builder(Component.literal("\u2691 Found a nation here (" + com.mapnationswars.nation.Charter.COST + " emeralds)"),
-					b -> this.minecraft.gui.setScreen(new NationsScreen(true))).pos(this.left + 12, my).size(w - 24, 20).build());
-			found.active = this.charterProblem(p) == null;
+		// outsiders at the mayor: found a nation here (no nation), stir up the people against their rulers
+		if (village && mine == null && this.atMayor) {
+			boolean noNation = ClientNations.myNation() == null;
+			int half = (w - 24 - 4) / 2;
+			int sx = this.left + 12;
+
+			if (noNation) {
+				Button found = this.addRenderableWidget(Button.builder(Component.literal("\u2691 Found a nation (" + com.mapnationswars.nation.Charter.COST + ")"),
+						b -> this.minecraft.gui.setScreen(new NationsScreen(true))).pos(sx, my).size(half, 20).build());
+				found.active = this.charterProblem(p) == null;
+				sx += half + 4;
+			}
+
+			if (p.nation != null && !p.capital) {
+				Button stir = this.addRenderableWidget(Button.builder(Component.literal("\uD83D\uDD25 Stir unrest (10)"), b -> {
+					if (ClientPlayNetworking.canSend(com.mapnationswars.network.PersonalActionPayload.TYPE)) {
+						ClientPlayNetworking.send(new com.mapnationswars.network.PersonalActionPayload(
+								com.mapnationswars.network.PersonalActionPayload.STIR_UNREST, this.provinceId.toString()));
+					}
+				}).pos(sx, my).size(noNation ? half : w - 24, 20).build());
+				stir.active = ClientRevolts.support(p.id) >= 20;
+			}
 		}
 
 		// gifts and closing
@@ -283,13 +300,20 @@ public class VillageScreen extends Screen {
 			graphics.text(this.font, "Unrest " + p.unrest + "% - " + p.unrestLabel(), l + 12, y, ucol);
 
 			if (village && this.myNationHere(p) == null) {
+				if (p.nation != null) {
+					int st = ClientPersonal.standing(p.nation);
+					String tag = ClientPersonal.outlawIn(p.nation) ? "  \u26A0 their guards hunt you" : "";
+					graphics.text(this.font, "Their nation thinks of you: " + (st > 0 ? "+" : "") + st + tag, l + 12, y + 11,
+							tag.isEmpty() ? 0xFF9AA0A6 : 0xFFFF6050);
+				}
+
 				int support = ClientRevolts.support(p.id);
 				graphics.text(this.font, "They back you: " + support + "/" + com.mapnationswars.nation.Charter.SUPPORT_NEEDED, col2, y,
 						support >= com.mapnationswars.nation.Charter.SUPPORT_NEEDED ? 0xFF7CFF7C : 0xFFB0B0B0);
 			}
 		}
 
-		y += 18;
+		y += !p.abandoned && village && this.myNationHere(p) == null && p.nation != null ? 28 : 18;
 
 		// buildings
 		if (village) {
@@ -305,7 +329,8 @@ public class VillageScreen extends Screen {
 			} else if (this.canOrder(p)) {
 				graphics.text(this.font, "Order a building (paid by the village, then the nation):", l + 12, y, 0xFF9CC8FF);
 			} else {
-				graphics.text(this.font, "Only the nation's leaders can order buildings.", l + 12, y, 0xFF888888);
+				NationData owner = ClientNations.get(p.nation);
+				graphics.text(this.font, "Only " + (owner != null ? owner.name + "'s" : "its") + " leader and Ministers give orders here.", l + 12, y, 0xFF888888);
 			}
 
 			// your money here
@@ -324,11 +349,20 @@ public class VillageScreen extends Screen {
 
 		super.extractRenderState(graphics, mouseX, mouseY, delta);
 
-		// why you can't found a nation yet
-		if (village && this.atMayor && ClientNations.myNation() == null && this.myNationHere(p) == null) {
+		// what the outsider buttons do
+		if (village && this.atMayor && this.myNationHere(p) == null) {
 			int fy = t + h - 54;
+			boolean noNation = ClientNations.myNation() == null;
+			int half = (w - 24 - 4) / 2;
+			boolean overStir = mouseY >= fy && mouseY < fy + 20 && (noNation ? mouseX >= l + 12 + half + 4 && mouseX < l + w - 12 : mouseX >= l + 12 && mouseX < l + w - 12);
 
-			if (mouseX >= l + 12 && mouseX < l + w - 12 && mouseY >= fy && mouseY < fy + 20) {
+			if (overStir && p.nation != null && !p.capital) {
+				int support = ClientRevolts.support(p.id);
+				graphics.setTooltipForNextFrame(this.font, Component.literal(support < 20
+						? "Nobody listens to you yet (support " + support + "/20). Do duties for " + p.name + ", give emeralds, kill monsters here."
+						: "Costs 10 emeralds: +12 unrest. At 100% the village rises up" + (noNation && support >= 60 ? " and makes YOU its leader" : "")
+								+ ". Their guards may catch you!"), mouseX, mouseY);
+			} else if (noNation && mouseX >= l + 12 && mouseX < l + 12 + half && mouseY >= fy && mouseY < fy + 20) {
 				String problem = this.charterProblem(p);
 				graphics.setTooltipForNextFrame(this.font, Component.literal(problem != null ? problem
 						: "The people of " + p.name + " are ready to follow you. Name your nation - but the old rulers will fight to keep it."), mouseX, mouseY);

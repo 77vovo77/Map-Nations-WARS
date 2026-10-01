@@ -30,6 +30,8 @@ public class LettersScreen extends PagedScreen {
 	private static LetterData.Type draftType = LetterData.Type.MESSAGE;
 	private static String draftAmount = "10";
 	private static String draftText = "";
+	/** Writing for yourself (true) or for your nation (false, leaders and Ministers). */
+	private static boolean draftPersonal = true;
 
 	private View view = View.RELATIONS;
 	private UUID selected;
@@ -52,6 +54,32 @@ public class LettersScreen extends PagedScreen {
 		}
 	}
 
+	/** Opens straight on writing a personal letter of one kind (from the You tab). */
+	public LettersScreen(UUID writeTo, LetterData.Type type) {
+		this(writeTo);
+		draftPersonal = true;
+		draftType = type;
+		this.view = View.WRITE;
+	}
+
+	private boolean personal() {
+		return draftPersonal || !this.canWrite();
+	}
+
+	private boolean allowed(LetterData.Type t) {
+		return this.personal() ? t.forPeople : t.forNations;
+	}
+
+	private boolean needsAmount() {
+		return this.personal() ? draftType == LetterData.Type.GIFT || draftType == LetterData.Type.PEACE
+				: draftType == LetterData.Type.GIFT || draftType == LetterData.Type.TRIBUTE;
+	}
+
+	/** The row with "As yourself / As your nation" (only for those who can write for their nation). */
+	private int modeRow() {
+		return this.canWrite() ? 24 : 0;
+	}
+
 	private UUID me() {
 		return this.minecraft != null && this.minecraft.player != null ? this.minecraft.player.getUUID() : new UUID(0, 0);
 	}
@@ -66,7 +94,8 @@ public class LettersScreen extends PagedScreen {
 		List<NationData> list = new ArrayList<>();
 
 		for (NationData n : ClientNations.all()) {
-			if (mine == null || !n.id.equals(mine.id)) {
+			// you may write to your own nation for yourself (asking for a promotion)
+			if (mine == null || !n.id.equals(mine.id) || (this.view == View.WRITE && this.personal())) {
 				list.add(n);
 			}
 		}
@@ -106,15 +135,13 @@ public class LettersScreen extends PagedScreen {
 		this.layoutFrame();
 		this.contentHeight = 0;
 
-		if (this.canWrite()) {
-			this.addRenderableWidget(Button.builder(Component.literal("✎ Write"), b -> this.show(View.WRITE, null))
-					.pos(this.listX + this.listW - 56, this.barBottom() + 4).size(56, 16).build());
-		}
+		this.addRenderableWidget(Button.builder(Component.literal("✎ Write"), b -> this.show(View.WRITE, null))
+				.pos(this.listX + this.listW - 56, this.barBottom() + 4).size(56, 16).build());
 
 		switch (this.view) {
 			case LETTER -> this.initLetter();
 			case WRITE -> this.initWrite();
-			default -> this.contentHeight = 14 + ClientNations.all().size() * 12;
+			default -> this.contentHeight = 110 + ClientNations.all().size() * 24;
 		}
 
 		this.clampScroll();
@@ -125,13 +152,14 @@ public class LettersScreen extends PagedScreen {
 		NationData mine = ClientNations.myNation();
 		this.contentHeight = 200;
 
-		if (l != null && mine != null && l.status == LetterData.Status.PENDING && mine.id.equals(l.to) && this.canWrite()) {
+		if (l != null && mine != null && l.status == LetterData.Status.PENDING && mine.id.equals(l.to) && this.canWrite()
+				&& !(l.personal && l.from.equals(this.me()))) {
 			int y = this.bottom() - 30;
 			this.addRenderableWidget(Button.builder(Component.literal("✔ Accept").withColor(0x7CFF7C),
-					b -> this.send(new LetterActionPayload(LetterActionPayload.ACCEPT, l.id.toString(), "", 0, "")))
+					b -> this.send(new LetterActionPayload(LetterActionPayload.ACCEPT, l.id.toString(), "", 0, "", false)))
 					.pos(this.panelX, y).size(90, 20).build());
 			this.addRenderableWidget(Button.builder(Component.literal("✖ Refuse").withColor(0xFF7C7C),
-					b -> this.send(new LetterActionPayload(LetterActionPayload.REFUSE, l.id.toString(), "", 0, "")))
+					b -> this.send(new LetterActionPayload(LetterActionPayload.REFUSE, l.id.toString(), "", 0, "", false)))
 					.pos(this.panelX + 94, y).size(90, 20).build());
 		}
 	}
@@ -150,6 +178,25 @@ public class LettersScreen extends PagedScreen {
 		int x = this.panelX;
 		int y = this.writeTop() + 14;
 
+		if (!this.allowed(draftType)) {
+			draftType = LetterData.Type.MESSAGE;
+		}
+
+		// write for yourself, or for your nation
+		if (this.canWrite()) {
+			NationData mine = ClientNations.myNation();
+			int half = (this.innerW() - 4) / 2;
+			this.addScrolled(Button.builder(Component.literal((draftPersonal ? "● " : "") + "As yourself"), b -> {
+				draftPersonal = true;
+				this.rebuildWidgets();
+			}).pos(x, y - 14).size(half, 18).build());
+			this.addScrolled(Button.builder(Component.literal(this.fit((!draftPersonal ? "● " : "") + "As " + (mine != null ? mine.name : "your nation"), half - 8)), b -> {
+				draftPersonal = false;
+				this.rebuildWidgets();
+			}).pos(x + half + 4, y - 14).size(half, 18).build());
+			y += this.modeRow();
+		}
+
 		// recipient: arrows to go through the nations
 		this.addScrolled(Button.builder(Component.literal("◀"), b -> this.cycleTo(-1)).pos(x, y).size(20, 20).build());
 		this.addScrolled(Button.builder(Component.literal("▶"), b -> this.cycleTo(1)).pos(x + this.innerW() - 20, y).size(20, 20).build());
@@ -159,6 +206,10 @@ public class LettersScreen extends PagedScreen {
 		List<ButtonSpec> types = new ArrayList<>();
 
 		for (LetterData.Type t : LetterData.Type.values()) {
+			if (!this.allowed(t)) {
+				continue;
+			}
+
 			String label = (t == draftType ? "● " : "") + t.displayName;
 			types.add(new ButtonSpec(label, this.font.width(label) + 14, b -> {
 				draftType = t;
@@ -168,7 +219,7 @@ public class LettersScreen extends PagedScreen {
 
 		y += this.flowButtons(types, x, y, true) + 16;
 
-		if (draftType == LetterData.Type.GIFT || draftType == LetterData.Type.TRIBUTE) {
+		if (this.needsAmount()) {
 			EditBox amount = new EditBox(this.font, x + 70, y - 4, 60, 18, null, Component.literal("Emeralds"));
 			amount.setMaxLength(6);
 			amount.setValue(draftAmount);
@@ -188,6 +239,7 @@ public class LettersScreen extends PagedScreen {
 		y += 30;
 
 		this.addScrolled(Button.builder(Component.literal(draftType == LetterData.Type.WAR ? "⚔ Declare war" : "✉ Send letter"), b -> {
+			boolean personalLetter = this.personal();
 			int amount = 0;
 
 			try {
@@ -196,7 +248,7 @@ public class LettersScreen extends PagedScreen {
 			}
 
 			if (draftTo != null) {
-				this.send(new LetterActionPayload(LetterActionPayload.SEND, draftTo.toString(), draftType.name(), amount, draftText));
+				this.send(new LetterActionPayload(LetterActionPayload.SEND, draftTo.toString(), draftType.name(), amount, draftText, personalLetter));
 				draftText = "";
 				this.show(View.RELATIONS, null);
 			}
@@ -264,19 +316,14 @@ public class LettersScreen extends PagedScreen {
 		NationData mine = ClientNations.myNation();
 		List<LetterData> letters = ClientDiplomacy.letters();
 
-		if (mine == null) {
+		if (letters.isEmpty()) {
 			int y = this.listY + 8;
 
-			for (String line : this.wrap("Join a nation to see its letters.", this.listW - 12)) {
+			for (String line : this.wrap("No letters yet. Press \u270E Write - anyone can write to any nation.", this.listW - 12)) {
 				graphics.text(this.font, line, this.listX + 6, y, 0xFFAAAAAA);
 				y += 11;
 			}
 
-			return;
-		}
-
-		if (letters.isEmpty()) {
-			graphics.text(this.font, "No letters yet.", this.listX + 6, this.listY + 8, 0xFFAAAAAA);
 			return;
 		}
 
@@ -287,12 +334,13 @@ public class LettersScreen extends PagedScreen {
 		for (int i = 0; i < letters.size() - this.listScroll && i <= visible; i++) {
 			LetterData l = letters.get(i + this.listScroll);
 			int y = this.listY + i * ROW_H;
-			boolean incoming = mine.id.equals(l.to);
+			boolean incoming = mine != null && mine.id.equals(l.to) && !(l.personal && l.from.equals(this.me()));
 			NationData other = ClientNations.get(incoming ? l.from : l.to);
 			boolean hover = mouseX >= this.listX && mouseX < this.listX + this.listW && mouseY >= y && mouseY < y + ROW_H && mouseY < this.listBottom;
 			this.drawListRow(graphics, y, typeColor(l.type), l.id.equals(this.selected) && this.view == View.LETTER, hover);
-			String who = (incoming ? "From " : "To ") + (other != null ? other.name : "?");
-			graphics.text(this.font, this.fit(who, this.listW - 14), this.listX + 8, y + 3, other != null ? 0xFF000000 | other.color : 0xFFFFFFFF);
+			String who = incoming && l.personal ? "From " + l.sender : (incoming ? "From " : "To ") + (other != null ? other.name : "?");
+			int whoColor = incoming && l.personal ? 0xFFFFE0A0 : other != null ? 0xFF000000 | other.color : 0xFFFFFFFF;
+			graphics.text(this.font, this.fit(who, this.listW - 14), this.listX + 8, y + 3, whoColor);
 			String status = switch (l.status) {
 				case PENDING -> incoming ? "needs answer" : "waiting";
 				case ACCEPTED -> "accepted";
@@ -312,15 +360,36 @@ public class LettersScreen extends PagedScreen {
 		int x = this.panelX;
 		int y = this.barBottom() + 10 - this.scroll;
 
-		if (mine == null) {
-			for (String line : this.wrap("You are not in a nation. Nations write letters to each other: gifts, trade, alliances, peace, demands and wars. Only leaders and Ministers can write.", this.innerW())) {
-				graphics.text(this.font, line, x, y, 0xFFBBBBBB);
-				y += 11;
+		// what every nation thinks of you, personally
+		this.drawHeading(graphics, "What the nations think of you", x, y, 0xFFFFD060);
+		y += 14;
+
+		for (String line : this.wrap("Write to any nation yourself (\u270E Write): ask to join, ask for a promotion, give gifts, declare your own war or ask for peace. "
+				+ "Gifts, duties and helping their villages make them like you; at -60 you are an outlaw and their guards attack you.", this.innerW())) {
+			graphics.text(this.font, line, x, y, 0xFF9AA0A6);
+			y += 11;
+		}
+
+		y += 3;
+
+		for (NationData n : this.sortedByName()) {
+			if (mine != null && n.id.equals(mine.id)) {
+				continue;
 			}
 
+			int o = ClientPersonal.standing(n.id);
+			String tag = ClientPersonal.atWar(n.id) ? " \u2694 YOUR WAR" : o <= -60 ? " \u26A0 outlaw" : "";
+			graphics.text(this.font, this.fit(n.name, this.innerW() / 2), x, y, 0xFF000000 | n.color);
+			String right = (o > 0 ? "+" : "") + o + tag;
+			graphics.text(this.font, right, x + this.innerW() - this.font.width(right), y, 0xFF000000 | (tag.isEmpty() ? Relations.color(o) : 0xFF6060));
+			y += 12;
+		}
+
+		if (mine == null) {
 			return;
 		}
 
+		y += 8;
 		this.drawHeading(graphics, "How the world sees " + mine.name, x, y, 0xFFFFD060);
 		y += 14;
 		List<NationData> others = this.others();
@@ -369,13 +438,14 @@ public class LettersScreen extends PagedScreen {
 		int ty = y + 8;
 		graphics.text(this.font, Component.literal(l.type.displayName).withStyle(s -> s.withBold(true).withColor(typeColor(l.type) == 0xBBBBBB ? 0x3A2E1A : darker(typeColor(l.type)))), x + 8, ty, 0xFFFFFFFF, false);
 		ty += 14;
-		graphics.text(this.font, this.fit("From: " + (from != null ? from.name : "?") + " (" + l.sender + ")", w - 16), x + 8, ty, 0xFF3A2E1A);
+		String fromText = l.personal ? l.sender + " (a personal letter)" : (from != null ? from.name : "?") + " (" + l.sender + ")";
+		graphics.text(this.font, this.fit("From: " + fromText, w - 16), x + 8, ty, 0xFF3A2E1A);
 		ty += 11;
 		graphics.text(this.font, this.fit("To: " + (to != null ? to.name : "?") + "   Day " + l.day, w - 16), x + 8, ty, 0xFF3A2E1A);
 		ty += 15;
 
-		if (l.amount > 0 && (l.type == LetterData.Type.GIFT || l.type == LetterData.Type.TRIBUTE)) {
-			graphics.text(this.font, (l.type == LetterData.Type.GIFT ? "Gift: " : "Demanded: ") + l.amount + " emeralds", x + 8, ty, 0xFF2E6B2E);
+		if (l.amount > 0 && (l.type == LetterData.Type.GIFT || l.type == LetterData.Type.TRIBUTE || l.type == LetterData.Type.PEACE)) {
+			graphics.text(this.font, (l.type == LetterData.Type.TRIBUTE ? "Demanded: " : l.type == LetterData.Type.PEACE ? "Offered: " : "Gift: ") + l.amount + " emeralds", x + 8, ty, 0xFF2E6B2E);
 			ty += 13;
 		}
 
@@ -401,6 +471,12 @@ public class LettersScreen extends PagedScreen {
 		}
 	}
 
+	private List<NationData> sortedByName() {
+		List<NationData> list = new ArrayList<>(ClientNations.all());
+		list.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
+		return list;
+	}
+
 	private static int darker(int rgb) {
 		return ((rgb >> 1) & 0x7F7F7F);
 	}
@@ -409,14 +485,19 @@ public class LettersScreen extends PagedScreen {
 		NationData mine = ClientNations.myNation();
 		NationData to = ClientNations.get(draftTo);
 		int x = this.panelX;
-		int y = this.writeTop();
-		graphics.text(this.font, "To:", x, y, 0xFFFFD060);
+		int y = this.writeTop() + this.modeRow();
+		graphics.text(this.font, this.personal() ? "To (from you):" : "To (from " + (mine != null ? mine.name : "your nation") + "):", x, y, 0xFFFFD060);
 
 		if (to != null) {
 			int cx = x + this.innerW() / 2;
 			graphics.centeredText(this.font, Component.literal(this.fit(to.name, this.innerW() - 50)).withColor(to.color), cx, y + 20, 0xFFFFFFFF);
 
-			if (mine != null) {
+			if (this.personal()) {
+				int o = ClientPersonal.standing(to.id);
+				String feel = "They think of you: " + (o > 0 ? "+" : "") + o + (ClientPersonal.atWar(to.id) ? "  \u2694 at war with you" : "")
+						+ (to.aiRuled() ? "   (answers at once)" : "   (a player decides)");
+				graphics.text(this.font, this.fit(feel, this.innerW()), x, y + 36, 0xFF000000 | Relations.color(o));
+			} else if (mine != null) {
 				int o = ClientDiplomacy.opinion(to, mine);
 				String feel = "They feel: " + (o > 0 ? "+" : "") + o + " " + Relations.label(o) + (to.aiRuled() ? "   (answers at once)" : "   (a player decides)");
 				graphics.text(this.font, this.fit(feel, this.innerW()), x, y + 36, 0xFF000000 | Relations.color(o));
@@ -425,9 +506,9 @@ public class LettersScreen extends PagedScreen {
 
 		// the kind's explanation below its buttons
 		int typesBottom = y + 48 + this.typeRowsHeight();
-		graphics.text(this.font, this.fit(draftType.help, this.innerW()), x, typesBottom - 12, 0xFF9AA0A6);
+		graphics.text(this.font, this.fit(this.personal() ? draftType.personalHelp : draftType.help, this.innerW()), x, typesBottom - 12, 0xFF9AA0A6);
 
-		if (draftType == LetterData.Type.GIFT || draftType == LetterData.Type.TRIBUTE) {
+		if (this.needsAmount()) {
 			graphics.text(this.font, "Emeralds:", x, typesBottom + 4, 0xFFFFD060);
 			typesBottom += 22;
 		}
@@ -439,6 +520,10 @@ public class LettersScreen extends PagedScreen {
 		List<ButtonSpec> types = new ArrayList<>();
 
 		for (LetterData.Type t : LetterData.Type.values()) {
+			if (!this.allowed(t)) {
+				continue;
+			}
+
 			String label = (t == draftType ? "● " : "") + t.displayName;
 			types.add(new ButtonSpec(label, this.font.width(label) + 14, b -> { }));
 		}

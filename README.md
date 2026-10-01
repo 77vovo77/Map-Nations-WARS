@@ -137,6 +137,45 @@ Nations ruled by the game now act on their own.
 - **Invasions both ways.** Armies can march through open rifts and through any portal players built. Pick an army in the War tab and press **Through a portal**: it marches to the nearest usable portal and comes out on the other side, at the same place divided by 8 in the Nether.
   - The AI uses portals too. Piglin clans at war with Overworld nations come through, and Overworld nations at war with piglins invade the Nether to besiege their bastions.
 
+## Politics for everyone (1.9.0)
+- **The "You" tab** (second tab, press **M**) explains everything one player can do, with your progress and a button for every action:
+  - **Start here:** your road, step by step, and the nations near you with **Join** buttons.
+  - **Duties:** your tasks, their progress and rewards; abandon one, or ask for a new one.
+  - **Rank & merit:** a merit bar to the next rank, every way to earn merit, and what each rank can do. **Ask for promotion** is here too.
+  - **Elections & coups:** run or withdraw, and a coup checklist with your chance and the **Attempt a coup** button.
+  - **Letters:** what you can write, with buttons to start.
+  - **Revolts:** how to start one, the villages that know you, and the most restless villages, each with a map button.
+  - **Your own nation:** the charter checklist (✔/✖) for the village you stand in, and **Found a nation here**.
+  - **Personal wars:** what every nation thinks of you, and buttons to declare war or ask for peace.
+  - **Land** and **Armies:** how they work, with buttons to the map and the War tab.
+- **Duties** are the clear way to rise.
+  - **Members** get up to 3 duties from their nation: hunt monsters in your land, bring emeralds to a village's mayor, visit a province, patrol, or fight the enemy in wartime. They pay merit (and some emeralds).
+  - **Players without a nation** get duties from the nearest village, and doing them makes its people back you.
+  - New duties come by themselves every few minutes.
+- **Anyone can write letters**, as themselves:
+  - **Message**, or **Gift** (emeralds you carry).
+  - **Ask to join** and **Ask for promotion**.
+  - A personal **Declaration of war**, and **Peace** (offer at least 30 emeralds).
+
+  Leaders and Ministers choose "As yourself" or "As <nation>" when they write. Nations ruled by the game answer at once; player leaders answer in their Letters tab.
+- **Opinion of you.** Every nation has an opinion of you, from -100 to +100.
+  - **It rises** with gifts, emeralds for its villages and duties.
+  - **It falls** when you are caught stirring trouble or kill its guards.
+  - **Joining needs it:** villagers take almost anyone, illagers want +20, piglins want +30, and the undead take no one alive.
+- **Village guards.** Come close to a village of a nation that you or your nation is at war with, or that thinks you are an outlaw (opinion -60 or lower), and its guards come out to kill you:
+  - iron golems for villagers,
+  - vindicators and pillagers for illagers,
+  - brutes (zombified piglins in the Overworld) for piglins,
+  - husks and skeletons for the dead.
+
+  They go back when you leave or when there is peace.
+- **Stir unrest.** At the mayor of another nation's village, once its people back you a little (20 support), press **Stir unrest**. It costs 10 emeralds and adds +12 unrest. At 100% the village rises up, and if you have no nation and 60+ support, you lead it. The guards may catch you.
+- **Nations claim land.**
+  - Every day, provinces of AI-ruled nations grow into the wild around them, faster when the village is happy, until they meet their neighbours.
+  - Leaders and Ministers press **Claim** on the map to claim land next to their own, within 12 chunks of a province, for 2 emeralds a chunk. Right-click gives land up.
+- **Only a village's own leaders decide for it.** Outsiders (even in creative mode) can no longer order buildings, raise or command armies there.
+- **Tabs fit any screen.** They share the room and use short names on small screens.
+
 ## Polish (1.8.0)
 - **War alert on screen.** In the world, a line at the top shows your nation's nearest battle or siege within 700 blocks, with its distance and direction ("⚔ Battle 140 blocks NE against ...").
 - **The minimap** shows armies, battles and portals.
@@ -144,7 +183,7 @@ Nations ruled by the game now act on their own.
 - **The War tab** lists the most awake portals with their meters, and the help explains portals.
 - **Narrow screens:** the title shortens to "WARS" so all five tabs fit.
 
-Press **M** to open it. The top bar shows **Map Nations WARS** and five tabs: **Map**, **Nations**, **Alliances**, **Letters** and **War**.
+Press **M** to open it. The top bar shows **Map Nations WARS** and six tabs: **Map**, **You**, **Nations**, **Alliances**, **Letters** and **War**.
 
 ## Map tab
 - **The whole world is visible right away** - no exploring needed. The server works out what places you haven't visited look like (height, water, biomes, forests, snow, mountains) and fills them in, starting from the middle of the view. Places you really visit are then drawn exactly, block by block. The filled-in land is saved, so it shows instantly next time.

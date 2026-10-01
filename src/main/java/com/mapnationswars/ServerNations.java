@@ -249,6 +249,18 @@ public final class ServerNations {
 
 	// ---------------------------------------------------------------- ranks (Map Nations WARS)
 
+	/** Adds a player to a nation as a Citizen. */
+	static void addMember(NationData n, UUID player, String name) {
+		removeRequestsEverywhere(player);
+
+		if (!n.isMember(player)) {
+			n.members.add(new NationData.Member(player, name));
+		}
+
+		n.ranks.put(player, com.mapnationswars.nation.Ranks.CITIZEN);
+		n.merit.putIfAbsent(player, 0);
+	}
+
 	/** Forgets everything about a player who left a nation. */
 	static void removeMemberData(NationData n, UUID who) {
 		n.ranks.remove(who);
@@ -438,9 +450,8 @@ public final class ServerNations {
 	}
 
 	private static void toggleClaim(MinecraftServer server, ServerPlayer player, int chunkX, int chunkZ) {
-		// Map Nations WARS: land belongs to provinces (villages, outposts...). It is won, not painted.
-		status(player, "In Map Nations WARS land can't be claimed. Every village already belongs to a nation.", false);
-		return;
+		// Map Nations WARS: land grows around provinces (WarsLand)
+		WarsLand.claim(server, player, chunkX, chunkZ, chunkX, chunkZ, true); // right-click gives land up
 	}
 
 	@SuppressWarnings("unused")
@@ -540,9 +551,8 @@ public final class ServerNations {
 	 * Officer: proposes the rectangle, or takes proposals back.
 	 */
 	private static void claimArea(MinecraftServer server, ServerPlayer player, ClaimAreaPayload a) {
-		// Map Nations WARS: land belongs to provinces (villages, outposts...). It is won, not painted.
-		status(player, "In Map Nations WARS land can't be claimed. Every village already belongs to a nation.", false);
-		return;
+		// Map Nations WARS: land grows around provinces (WarsLand)
+		WarsLand.claim(server, player, a.fromX(), a.fromZ(), a.toX(), a.toZ(), a.claim());
 	}
 
 	@SuppressWarnings("unused")
@@ -809,18 +819,29 @@ public final class ServerNations {
 						return;
 					}
 
-					if (target.faction != com.mapnationswars.nation.Faction.VILLAGER) {
-						status(player, "The " + target.faction.displayName.toLowerCase() + " of " + target.name + " don't take in humans.", false);
+					String refusal = target.aiRuled() ? WarsPeople.joinRefusal(me, target) : null;
+
+					if (refusal != null) {
+						status(player, refusal, false);
 						return;
 					}
 
+					if (!target.aiRuled()) {
+						// a player leads it: they decide
+						if (!target.hasRequest(me)) {
+							target.requests.add(new NationData.Member(me, myName));
+							notifyPlayer(server, target.leader, myName + " wants to join " + target.name + ".");
+						}
+
+						status(player, "Request sent to " + target.name + ". Its leader decides.", true);
+						changed = true;
+						break;
+					}
+
 					// AI nations take in newcomers as citizens
-					removeRequestsEverywhere(me);
-					target.members.add(new NationData.Member(me, myName));
-					target.ranks.put(me, com.mapnationswars.nation.Ranks.CITIZEN);
-					target.merit.putIfAbsent(me, 0);
+					addMember(target, me, myName);
 					status(player, target.ideology.leaderTitle + " " + target.leaderName() + " welcomes you to " + target.name
-							+ "! Serve the nation to rise through the ranks.", true);
+							+ "! Open the You tab (M) for your duties and how to rise through the ranks.", true);
 					changed = true;
 					break;
 				}

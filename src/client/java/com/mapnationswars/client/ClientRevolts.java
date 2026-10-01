@@ -28,4 +28,8 @@ public final class ClientRevolts {
 	public static int support(UUID province) {
 		return province == null ? 0 : SUPPORT.getOrDefault(province, 0);
 	}
+
+	public static Map<UUID, Integer> all() {
+		return SUPPORT;
+	}
 }

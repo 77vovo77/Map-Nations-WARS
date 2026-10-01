@@ -218,6 +218,7 @@ public final class WarsEconomy {
 		WarsPolitics.runDay(server, server.overworld().getGameTime() / DAY_TICKS);
 		WarsDiplomacy.runDay(server);
 		WarsRevolts.runDay(server);
+		WarsLand.runDay(server);
 		WarsAI.runDay(server);
 		WarsWar.runDay(server);
 		WarsWar.broadcast(server);
@@ -253,10 +254,10 @@ public final class WarsEconomy {
 
 	// ---------------------------------------------------------------- player actions
 
-	/** Who may give orders to a village: its nation's leader and Ministers (or a player in creative mode, for testing). */
+	/** Who may give orders to a village: only its own nation's leader and Ministers. */
 	static boolean canOrder(ServerPlayer player, ProvinceData p) {
 		NationData n = ServerNations.nation(p.nation);
-		return player.isCreative() || (n != null && (n.leader.equals(player.getUUID())
+		return (n != null && (n.leader.equals(player.getUUID())
 				|| (n.isMember(player.getUUID()) && n.rankOf(player.getUUID()) >= com.mapnationswars.nation.Ranks.MINISTER)));
 	}
 
@@ -294,6 +295,8 @@ public final class WarsEconomy {
 		NationData owner = ServerNations.nation(p.nation);
 
 		WarsRevolts.addSupport(player, p, taken); // the people remember who helped them
+		WarsPeople.changeStanding(player, p.nation, Math.max(1, taken / 3));
+		WarsDuties.onDonate(server, player, p, taken);
 
 		if (owner != null && owner.isMember(player.getUUID())) {
 			WarsPolitics.addMerit(server, owner, player.getUUID(), taken); // helping your own villages is service too
