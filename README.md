@@ -122,8 +122,27 @@ Nations ruled by the game now act on their own.
   4. Talk to the mayor and press **Found a nation here**. Pay the 200-emerald charter, then choose a name, colour, ideology and banner.
 - **The new nation** gets that village, a free militia and a small treasury. Its old rulers declare war at once, so you will have to defend it, win allies or make peace.
 
-## Coming next
-8. Portals: ruined portals waking up, invasions between the Nether and the Overworld.
+## Portals and Nether invasions (stage 8)
+- **Ruined portals wake up.** When a world starts, the server finds the ruined portals of the Overworld. Each one has an **awakening meter** from 0 to 100%.
+  - **To see it,** hover over the portal on the map (or the minimap), or simply look at the portal in the world: the meter appears under your crosshair.
+  - At 75% the whole server is warned.
+- **Players make it worse.** Every portal players build (or relight) is noticed the first time someone travels through it.
+  - Every such portal makes the ruined portals within 1500 blocks wake up faster.
+  - It wakes up itself, three times as fast.
+- **The world grows dangerous.** Portals also wake faster as the world gets older, and the stronger the piglin clans are.
+- **Calming a portal:** camp an army at it (it barely wakes while guarded), or kill Nether creatures near it.
+- **Invasion.** At 100% a portal **tears open for three days**. The strongest piglin clan (or the Legion of the Nether, if there is none) pours into the Overworld with 2 to 5 armies, and declares war on whoever owns the nearest land. That nation's allies are called to arms.
+  - The piglin generals march on your villages like any other army. A village they take is ruled by piglins and hates it.
+  - **Fight at the rift.** Near an open rift, Nether creatures come out for any player close by: zombified piglins, magma cubes and blazes. Every Nether creature you kill there closes the rift 2 minutes sooner.
+- **Invasions both ways.** Armies can march through open rifts and through any portal players built. Pick an army in the War tab and press **Through a portal**: it marches to the nearest usable portal and comes out on the other side, at the same place divided by 8 in the Nether.
+  - The AI uses portals too. Piglin clans at war with Overworld nations come through, and Overworld nations at war with piglins invade the Nether to besiege their bastions.
+
+## Polish (1.8.0)
+- **War alert on screen.** In the world, a line at the top shows your nation's nearest battle or siege within 700 blocks, with its distance and direction ("⚔ Battle 140 blocks NE against ...").
+- **The minimap** shows armies, battles and portals.
+- **The map's View menu** can switch armies & battles and portals on or off.
+- **The War tab** lists the most awake portals with their meters, and the help explains portals.
+- **Narrow screens:** the title shortens to "WARS" so all five tabs fit.
 
 Press **M** to open it. The top bar shows **Map Nations WARS** and five tabs: **Map**, **Nations**, **Alliances**, **Letters** and **War**.
 

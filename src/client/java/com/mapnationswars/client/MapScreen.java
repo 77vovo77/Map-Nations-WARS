@@ -197,14 +197,18 @@ public class MapScreen extends MapNationsBaseScreen {
 					Component.literal("Markers: " + FILTER_NAMES[markerFilter]),
 					Component.literal("Minimap: " + (ClientConfig.minimap() ? "ON" : "OFF")),
 					Component.literal("Minimap place: " + ClientConfig.CORNERS[ClientConfig.minimapCorner()]),
-					Component.literal("Minimap size: " + ClientConfig.SIZES[ClientConfig.minimapSize()]));
+					Component.literal("Minimap size: " + ClientConfig.SIZES[ClientConfig.minimapSize()]),
+					Component.literal("Armies & battles: " + (WarMap.showArmies ? "ON" : "OFF")),
+					Component.literal("Portals: " + (WarMap.showPortals ? "ON" : "OFF")));
 			List<Runnable> actions = List.of(
 					() -> mapMode = (mapMode + 1) % 3,
 					() -> showSettlementBorders = !showSettlementBorders,
 					() -> markerFilter = (markerFilter + 1) % FILTER_NAMES.length,
 					() -> ClientConfig.setMinimap(!ClientConfig.minimap()),
 					ClientConfig::cycleMinimapCorner,
-					ClientConfig::cycleMinimapSize);
+					ClientConfig::cycleMinimapSize,
+					() -> WarMap.showArmies = !WarMap.showArmies,
+					() -> WarMap.showPortals = !WarMap.showPortals);
 
 			for (int i = 0; i < labels.size(); i++) {
 				Runnable action = actions.get(i);
@@ -456,6 +460,8 @@ public class MapScreen extends MapNationsBaseScreen {
 			// no tooltips while placing / moving / selecting, they would cover the spot
 		} else if (hoveredDivision != null) {
 			WarMap.tooltip(graphics, this.font, hoveredDivision, mouseX, mouseY, this.width, this.height, this.myId());
+		} else if (WarMap.hoveredPortal != null && this.editingArea == null) {
+			WarMap.portalTooltip(graphics, this.font, WarMap.hoveredPortal, mouseX, mouseY, this.width, this.height);
 		} else if (hoveredMarker != null) {
 			this.markerTooltip(graphics, hoveredMarker, mouseX, mouseY);
 		} else if (hoveredPlayer != null) {

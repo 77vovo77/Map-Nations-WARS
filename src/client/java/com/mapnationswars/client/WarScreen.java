@@ -80,6 +80,7 @@ public class WarScreen extends PagedScreen {
 
 		if (command) {
 			buttons.add(new ButtonSpec("Hold", 44, b -> this.send(ArmyActionPayload.HALT, d, "", 0, 0)));
+			buttons.add(new ButtonSpec("\u2B58 Through a portal", 112, b -> this.send(ArmyActionPayload.MOVE, d, "portal", 0, 0)));
 			buttons.add(new ButtonSpec("Go home", 60, b -> {
 				ProvinceData home = this.nearestOwn(d);
 
@@ -270,6 +271,28 @@ public class WarScreen extends PagedScreen {
 		}
 
 		y += 6;
+		this.drawHeading(graphics, "Portals", x, y, 0xFFD080FF);
+		y += 14;
+		java.util.List<com.mapnationswars.nation.PortalSite> portals = ClientPortals.byDanger();
+
+		if (portals.isEmpty()) {
+			graphics.text(this.font, "No portals known yet.", x, y, 0xFF888888);
+			y += 12;
+		}
+
+		for (int i = 0; i < Math.min(8, portals.size()); i++) {
+			com.mapnationswars.nation.PortalSite p = portals.get(i);
+			String left = this.fit((p.playerBuilt ? "\u2B58 " : "\u25AF ") + p.name, w - 120);
+			graphics.text(this.font, left, x, y, 0xFFE0B0FF);
+			String right = p.open ? "OPEN!" : (int) p.activation + "%";
+			int bx = x + w - 100;
+			graphics.fill(bx, y + 1, bx + 60, y + 8, 0xFF2A1A36);
+			graphics.fill(bx, y + 1, bx + (int) (60 * Math.min(100, p.activation) / 100), y + 8, ClientPortals.color(p));
+			graphics.text(this.font, right, bx + 66, y, p.open ? 0xFFFF5030 : 0xFFDDDDDD);
+			y += 12;
+		}
+
+		y += 6;
 		this.drawHeading(graphics, "Chronicle", x, y, 0xFFFFD060);
 		y += 14;
 		List<String> news = ClientDiplomacy.news();
@@ -316,7 +339,9 @@ public class WarScreen extends PagedScreen {
 				+ "Send it to an enemy province to besiege it - when the siege reaches 100% the province is yours. "
 				+ "Armies of nations at war fight when they meet. Go there yourself: the enemy's soldiers appear, "
 				+ "every one you kill weakens their army, and your side fights harder while you are near. "
-				+ "Armies cost upkeep every day and refill when they rest in your land.";
+				+ "Armies cost upkeep every day and refill when they rest in your land. "
+				+ "Ruined portals slowly wake up - faster for every portal players build. At 100% one tears open and piglins invade. "
+				+ "Armies can march through open and player-built portals: pick one and press Through a portal.";
 		y += this.drawWrapped(graphics, help, x, y, w, 0xFFBBBBBB);
 		return y - top + 10;
 	}

@@ -227,6 +227,47 @@ final class Minimap {
 			}
 		}
 
+		// portals, armies and battles (stages 5 and 8)
+		boolean blink = (System.currentTimeMillis() / 400) % 2 == 0;
+
+		if (WarMap.showPortals) {
+			for (com.mapnationswars.nation.PortalSite s : ClientPortals.all()) {
+				if (!ClientPortals.visibleIn(s, dim)) {
+					continue;
+				}
+
+				int sx = (int) Math.round(midX + (s.xIn(dim) - px) * ZOOM);
+				int sy = (int) Math.round(midY + (s.zIn(dim) - pz) * ZOOM);
+				g.fill(sx - 3, sy - 4, sx + 3, sy + 4, 0xFF120A1C);
+				g.fill(sx - 2, sy - 3, sx + 2, sy + 3, s.open && blink ? 0xFFFF6A20 : ClientPortals.color(s));
+			}
+		}
+
+		if (WarMap.showArmies) {
+			for (com.mapnationswars.nation.DivisionData d : ClientWar.divisions()) {
+				if (!d.dimension.equals(dim)) {
+					continue;
+				}
+
+				double[] pos = ClientWar.position(d);
+				int sx = (int) Math.round(midX + (pos[0] - px) * ZOOM);
+				int sy = (int) Math.round(midY + (pos[1] - pz) * ZOOM);
+				NationData n = ClientNations.get(d.nation);
+				g.fill(sx - 3, sy - 2, sx + 4, sy + 3, d.state == com.mapnationswars.nation.DivisionData.State.FIGHTING && blink ? 0xFFFF3020 : 0xFF000000);
+				g.fill(sx - 2, sy - 1, sx + 3, sy + 2, 0xFF000000 | (n != null ? n.color : 0xFFFFFF));
+			}
+
+			for (com.mapnationswars.network.WarSyncPayload.Battle b : ClientWar.battles()) {
+				if (!b.dimension().equals(dim)) {
+					continue;
+				}
+
+				int sx = (int) Math.round(midX + (b.x() - px) * ZOOM);
+				int sy = (int) Math.round(midY + (b.z() - pz) * ZOOM);
+				g.centeredText(mc.font, "\u2694", sx, sy - 4, blink ? 0xFFFF4030 : 0xFFFFD040);
+			}
+		}
+
 		// other players (from the server, or the ones close enough to be loaded)
 		for (com.mapnationswars.network.PlayersPayload.Entry e : ClientNations.players()) {
 			if (e.id().equals(player.getUUID()) || !e.dimension().equals(dim)) {

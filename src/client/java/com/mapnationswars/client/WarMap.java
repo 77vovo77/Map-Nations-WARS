@@ -32,6 +32,11 @@ final class WarMap {
 
 	/** The army the player picked on the map (stays picked when the map is closed and opened again). */
 	static UUID selected = null;
+	/** View menu switches (stage 8 polish). */
+	static boolean showArmies = true;
+	static boolean showPortals = true;
+	/** The portal under the mouse after the last draw (or null). */
+	static com.mapnationswars.nation.PortalSite hoveredPortal = null;
 
 	private WarMap() {
 	}
@@ -70,6 +75,10 @@ final class WarMap {
 	}
 
 	static DivisionData divisionAt(Projection pr, String dim, double mx, double my) {
+		if (!showArmies) {
+			return null;
+		}
+
 		List<Placed> placed = place(pr, dim);
 
 		for (int i = placed.size() - 1; i >= 0; i--) {
@@ -88,6 +97,11 @@ final class WarMap {
 		long now = System.currentTimeMillis();
 		boolean blink = (now / 400) % 2 == 0;
 		NationData mine = ClientNations.myNation();
+		hoveredPortal = showPortals ? drawPortals(g, font, pr, dim, mouseX, mouseY, overMap, blink) : null;
+
+		if (!showArmies) {
+			return null;
+		}
 
 		// marching lines: your own armies always, others only when hovered / picked
 		DivisionData sel = selectedDivision();
@@ -206,6 +220,63 @@ final class WarMap {
 		}
 
 		return hovered;
+	}
+
+	/** Portals: a little obsidian frame glowing more the more awake it is, with its activation bar. */
+	private static com.mapnationswars.nation.PortalSite drawPortals(GuiGraphicsExtractor g, Font font, Projection pr, String dim,
+			int mouseX, int mouseY, boolean overMap, boolean blink) {
+		com.mapnationswars.nation.PortalSite hovered = null;
+
+		for (com.mapnationswars.nation.PortalSite s : ClientPortals.all()) {
+			if (!ClientPortals.visibleIn(s, dim)) {
+				continue;
+			}
+
+			int x = (int) Math.round(pr.sx(s.xIn(dim)));
+			int y = (int) Math.round(pr.sy(s.zIn(dim)));
+			int glow = ClientPortals.color(s);
+
+			if (s.open) {
+				g.fill(x - 8, y - 10, x + 8, y + 10, blink ? 0x60FF3010 : 0x30FF3010); // the rift
+			}
+
+			g.fill(x - 5, y - 7, x + 5, y + 7, 0xFF120A1C); // obsidian
+			g.fill(x - 3, y - 5, x + 3, y + 5, s.open ? (blink ? 0xFFFF6A20 : 0xFFE040FF) : glow);
+
+			if (s.playerBuilt) {
+				g.fill(x + 4, y - 8, x + 7, y - 5, 0xFFFFD54F); // built by players
+			}
+
+			// activation bar
+			g.fill(x - 9, y + 9, x + 9, y + 12, 0xFF000000);
+			g.fill(x - 8, y + 10, x - 8 + (int) Math.round(16 * Math.min(100, s.activation) / 100), y + 11, glow);
+
+			if (overMap && Math.abs(mouseX - x) <= 7 && mouseY >= y - 8 && mouseY <= y + 12) {
+				hovered = s;
+			}
+		}
+
+		return hovered;
+	}
+
+	static void portalTooltip(GuiGraphicsExtractor g, Font font, com.mapnationswars.nation.PortalSite s, int mouseX, int mouseY, int width, int height) {
+		RichTooltip tip = new RichTooltip();
+		tip.text(Component.literal("\u2B58 " + s.name).withStyle(st -> st.withColor(0xD080FF).withBold(true)));
+		tip.text(Component.literal(ClientPortals.state(s)).withColor(s.open ? 0xFF5030 : 0xE0A0FF));
+
+		if (!s.open) {
+			tip.text(Component.literal("Awakening: " + (int) s.activation + "%  (+" + String.format(java.util.Locale.ROOT, "%.1f", s.rate) + " a day)").withColor(0xFFD27A));
+		}
+
+		if (s.playerBuilt) {
+			tip.text(Component.literal("Built by players" + (s.builder.isEmpty() ? "" : " (" + s.builder + ")") + ": armies can march through it").withColor(0xFFD54F));
+		} else {
+			tip.text(Component.literal("Every portal players build nearby wakes it faster").withColor(0xAAAAAA));
+		}
+
+		tip.text(Component.literal("An army camped here keeps it quiet. Killing Nether creatures here pushes it back.").withColor(0x888888));
+		tip.text(Component.literal("X " + s.x + "  Z " + s.z + (s.open || s.playerBuilt ? "   Nether side: " + s.x / 8 + ", " + s.z / 8 : "")).withColor(0x777777));
+		tip.draw(g, font, mouseX, mouseY, width, height);
 	}
 
 	private static int darken(int rgb) {

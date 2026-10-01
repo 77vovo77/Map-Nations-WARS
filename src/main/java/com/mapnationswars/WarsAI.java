@@ -498,7 +498,10 @@ public final class WarsAI {
 		// tired armies go home to rest
 		for (DivisionData d : mine) {
 			if (!busy.contains(d) && !fresh(d) && d.state != DivisionData.State.SIEGING && !atHome(d)) {
-				WarsWar.goHome(d);
+				if (d.portal == null) {
+					sendHome(n, d);
+				}
+
 				busy.add(d);
 			}
 		}
@@ -507,7 +510,7 @@ public final class WarsAI {
 			// at peace: armies outside our land come back
 			for (DivisionData d : mine) {
 				if (!busy.contains(d) && d.state == DivisionData.State.IDLE && !inOwnLand(d)) {
-					WarsWar.goHome(d);
+					sendHome(n, d);
 				}
 			}
 
@@ -559,10 +562,56 @@ public final class WarsAI {
 				continue; // already on its way
 			}
 
+			if (d.portal != null && d.state == DivisionData.State.MARCHING) {
+				continue; // on its way through a portal
+			}
+
 			ProvinceData target = attackTarget(n, enemies, d);
 
 			if (target != null) {
 				WarsWar.order(d, target, target.x, target.z);
+			} else if (enemyLandElsewhere(enemies, d.dimension)) {
+				// the enemy is on the other side of a portal (stage 8): invade through it
+				throughPortal(d);
+			}
+		}
+	}
+
+	private static boolean enemyLandElsewhere(List<NationData> enemies, String dimension) {
+		for (ProvinceData p : WarsWorld.provinces()) {
+			if (p.nation != null && !p.dimension.equals(dimension) && enemiesContain(enemies, p.nation)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static boolean throughPortal(DivisionData d) {
+		com.mapnationswars.nation.PortalSite site = WarsPortals.nearestUsable(d.dimension, d.x, d.z);
+
+		if (site == null) {
+			return false;
+		}
+
+		WarsWar.order(d, null, site.xIn(d.dimension), site.zIn(d.dimension));
+		d.portal = site.id;
+		return true;
+	}
+
+	/** Home: the nearest own province, through a portal if all our land is on the other side. */
+	private static void sendHome(NationData n, DivisionData d) {
+		if (WarsWar.goHome(d)) {
+			return;
+		}
+
+		for (ProvinceData p : WarsWorld.provinces()) {
+			if (n.id.equals(p.nation) && !p.dimension.equals(d.dimension)) {
+				if (d.portal == null) {
+					throughPortal(d);
+				}
+
+				return;
 			}
 		}
 	}

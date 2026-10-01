@@ -46,6 +46,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import com.mapnationswars.nation.DivisionData;
 import com.mapnationswars.nation.Faction;
 import com.mapnationswars.nation.NationData;
+import com.mapnationswars.nation.PortalSite;
 import com.mapnationswars.nation.ProvinceData;
 import com.mapnationswars.nation.Ranks;
 import com.mapnationswars.network.ArmyActionPayload;
@@ -310,6 +311,23 @@ public final class WarsWar {
 
 		switch (a.action()) {
 			case ArmyActionPayload.MOVE -> {
+				if ("portal".equals(a.argument())) {
+					PortalSite site = WarsPortals.nearestUsable(d.dimension, d.x, d.z);
+
+					if (site == null) {
+						ServerNations.status(player, "No portal to march through: build one, or wait for a ruined portal to tear open.", false);
+						return;
+					}
+
+					order(d, null, site.xIn(d.dimension), site.zIn(d.dimension));
+					d.portal = site.id;
+					d.commander = me;
+					d.orderTime = server.overworld().getGameTime();
+					ServerNations.status(player, d.name + " marches to the " + site.name + " to go through it.", true);
+					break;
+				}
+
+				d.portal = null;
 				UUID target = null;
 
 				try {
@@ -332,6 +350,7 @@ public final class WarsWar {
 				ServerNations.status(player, d.name + (attack ? " marches to besiege " : " marches to ") + where + ".", true);
 			}
 			case ArmyActionPayload.HALT -> {
+				d.portal = null;
 				d.state = DivisionData.State.IDLE;
 				d.goalX = d.x;
 				d.goalZ = d.z;
@@ -369,6 +388,7 @@ public final class WarsWar {
 			d.morale = Math.max(0, d.morale - 10); // pulling out of a battle costs morale
 		}
 
+		d.portal = null;
 		d.target = target != null ? target.id : null;
 		d.goalX = x;
 		d.goalZ = z;
@@ -449,6 +469,24 @@ public final class WarsWar {
 		return d;
 	}
 
+	/** An army that appears out of nowhere (invaders from a portal): no province raised it. */
+	static DivisionData spawnDivision(NationData n, DivisionData.Kind kind, String dimension, double x, double z, String prefix) {
+		int number = RAISED.merge(n.id, 1, Integer::sum);
+		DivisionData d = new DivisionData(UUID.randomUUID());
+		d.nation = n.id;
+		d.kind = kind;
+		d.name = ordinal(number) + " " + kind.unitName(n.faction) + (prefix.isEmpty() ? "" : " (" + prefix + ")");
+		d.strength = kind.maxStrength;
+		d.morale = 80;
+		d.dimension = dimension;
+		d.x = x;
+		d.z = z;
+		d.goalX = x;
+		d.goalZ = z;
+		DIVISIONS.put(d.id, d);
+		return d;
+	}
+
 	private static String ordinal(int n) {
 		int mod100 = n % 100;
 		String suffix = mod100 >= 11 && mod100 <= 13 ? "th" : switch (n % 10) {
@@ -523,7 +561,7 @@ public final class WarsWar {
 		// armies of nations that no longer exist go away
 		DIVISIONS.values().removeIf(d -> ServerNations.nation(d.nation) == null);
 
-		move();
+		move(server);
 		Map<DivisionData, DivisionData> opponents = findBattles(server);
 		fight(server, opponents);
 		sieges(server);
@@ -537,7 +575,7 @@ public final class WarsWar {
 		broadcast(server);
 	}
 
-	private static void move() {
+	private static void move(MinecraftServer server) {
 		for (DivisionData d : DIVISIONS.values()) {
 			if (d.state != DivisionData.State.MARCHING && d.state != DivisionData.State.RETREATING) {
 				continue;
@@ -551,7 +589,7 @@ public final class WarsWar {
 			if (dist <= speed) {
 				d.x = d.goalX;
 				d.z = d.goalZ;
-				arrive(d);
+				arrive(server, d);
 			} else {
 				d.x += dx / dist * speed;
 				d.z += dz / dist * speed;
@@ -560,7 +598,12 @@ public final class WarsWar {
 	}
 
 	/** A division reached its goal: besiege an enemy province, or hold. */
-	private static void arrive(DivisionData d) {
+	private static void arrive(MinecraftServer server, DivisionData d) {
+		if (d.portal != null) {
+			WarsPortals.cross(server, d);
+			return;
+		}
+
 		ProvinceData t = WarsWorld.province(d.target);
 
 		if (d.state != DivisionData.State.RETREATING && t != null && t.nation != null && hostile(d.nation, t.nation)) {
@@ -621,7 +664,7 @@ public final class WarsWar {
 				if (Math.hypot(d.goalX - d.x, d.goalZ - d.z) > 2) {
 					d.state = DivisionData.State.MARCHING;
 				} else {
-					arrive(d);
+					arrive(server, d);
 				}
 			}
 		}
@@ -733,6 +776,7 @@ public final class WarsWar {
 			return false;
 		}
 
+		d.portal = null;
 		d.target = best.id;
 		d.goalX = best.x + RANDOM.nextInt(17) - 8;
 		d.goalZ = best.z + RANDOM.nextInt(17) - 8;
@@ -1086,26 +1130,9 @@ public final class WarsWar {
 
 		boolean nether = dimension.equals("minecraft:the_nether");
 		int y = nether ? (int) Math.floor(foe.getY()) : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-		EntityType<?> type = entityType(soldierType(n.faction, kind, nether));
+		Mob mob = spawnMob(level, soldierType(n.faction, kind, nether), x, y, z);
 
-		if (type == null) {
-			return;
-		}
-
-		Entity spawned;
-
-		try {
-			spawned = type.spawn(level, new BlockPos(x, y, z), EntitySpawnReason.EVENT);
-		} catch (Exception e) {
-			MapNationsMod.LOGGER.warn("Map Nations WARS: could not spawn a soldier", e);
-			return;
-		}
-
-		if (!(spawned instanceof Mob mob)) {
-			if (spawned != null) {
-				spawned.discard();
-			}
-
+		if (mob == null) {
 			return;
 		}
 
@@ -1113,6 +1140,39 @@ public final class WarsWar {
 		mob.setCustomNameVisible(true);
 		mob.setTarget(foe);
 		SOLDIERS.put(mob.getUUID(), new Soldier(division, province, dimension, n.id));
+	}
+
+	/** Spawns a vanilla mob by its entity type constant name (e.g. "PILLAGER"). Null if it couldn't. */
+	static Mob spawnMob(ServerLevel level, String typeConstant, int x, int y, int z) {
+		EntityType<?> type = entityType(typeConstant);
+
+		if (type == null) {
+			return null;
+		}
+
+		Entity spawned;
+
+		try {
+			spawned = type.spawn(level, new BlockPos(x, y, z), EntitySpawnReason.EVENT);
+		} catch (Exception e) {
+			MapNationsMod.LOGGER.warn("Map Nations WARS: could not spawn {}", typeConstant, e);
+			return null;
+		}
+
+		if (spawned instanceof Mob mob) {
+			return mob;
+		}
+
+		if (spawned != null) {
+			spawned.discard();
+		}
+
+		return null;
+	}
+
+	/** Mobs with this name prefix belong to the war; left-over ones are removed when their chunk loads again. */
+	static String soldierPrefix() {
+		return SOLDIER_PREFIX;
 	}
 
 	private static void soldierKilled(MinecraftServer server, Soldier s, ServerPlayer killer) {
@@ -1221,6 +1281,7 @@ public final class WarsWar {
 				d.home = o.has("home") ? UUID.fromString(o.get("home").getAsString()) : null;
 				d.commander = o.has("commander") ? UUID.fromString(o.get("commander").getAsString()) : null;
 				d.orderTime = o.has("orderTime") ? o.get("orderTime").getAsLong() : 0;
+				d.portal = o.has("portal") ? UUID.fromString(o.get("portal").getAsString()) : null;
 				DIVISIONS.put(d.id, d);
 			}
 
@@ -1282,6 +1343,10 @@ public final class WarsWar {
 			}
 
 			o.addProperty("orderTime", d.orderTime);
+
+			if (d.portal != null) {
+				o.addProperty("portal", d.portal.toString());
+			}
 			divisions.add(o);
 		}
 

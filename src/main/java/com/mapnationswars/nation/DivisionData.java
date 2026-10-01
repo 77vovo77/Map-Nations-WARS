@@ -119,6 +119,8 @@ public final class DivisionData {
 	/** The player who gave the last order (the game's own generals leave such divisions alone for a while). */
 	public UUID commander;
 	public long orderTime;
+	/** The portal it marches to, to come out on the other side (server only, stage 8). */
+	public UUID portal;
 
 	public DivisionData(UUID id) {
 		this.id = id;

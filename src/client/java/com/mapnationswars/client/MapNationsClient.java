@@ -32,6 +32,7 @@ public class MapNationsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		TerritoryHud.register();
+		WarsHud.register();
 		Minimap.register();
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -67,6 +68,8 @@ public class MapNationsClient implements ClientModInitializer {
 				context.client().execute(() -> ClientWar.apply(payload)));
 		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.SupportSyncPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> ClientRevolts.apply(payload)));
+		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.PortalsSyncPayload.TYPE, (payload, context) ->
+				context.client().execute(() -> ClientPortals.apply(payload)));
 
 		// talked to a mayor: open the village page
 		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.OpenVillagePayload.TYPE, (payload, context) ->
@@ -89,6 +92,7 @@ public class MapNationsClient implements ClientModInitializer {
 					ClientDiplomacy.clear();
 					ClientWar.clear();
 					ClientRevolts.clear();
+					ClientPortals.clear();
 				}));
 	}
 }
