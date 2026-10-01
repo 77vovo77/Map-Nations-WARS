@@ -211,7 +211,8 @@ public class NationsScreen extends PagedScreen {
 			}
 		}
 
-		List<String> stats = this.wrap((n.ai ? n.faction.displayName + " (AI)   Provinces: " + provinces + "   " : "")
+		String money = "   Treasury: " + n.treasury + " emeralds (" + (n.lastBalance >= 0 ? "+" : "") + n.lastBalance + "/day)";
+		List<String> stats = this.wrap((n.ai ? n.faction.displayName + " (AI)   Provinces: " + provinces + money + "   " : "")
 				+ "Members: " + n.members.size() + "   Territory: " + ClientNations.chunkCount(n.id)
 				+ " chunks   Villagers: " + n.population + (alliance != null ? "   Alliance: " + alliance.name : ""), this.innerW());
 		y += stats.size() * 11 + 3;

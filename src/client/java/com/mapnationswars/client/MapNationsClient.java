@@ -61,6 +61,16 @@ public class MapNationsClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(ProvincesSyncPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> ClientMarkers.applyProvinces(payload)));
 
+		// talked to a mayor: open the village page
+		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.OpenVillagePayload.TYPE, (payload, context) ->
+				context.client().execute(() -> {
+					try {
+						java.util.UUID id = java.util.UUID.fromString(payload.province());
+						context.client().gui.setScreen(new VillageScreen(null, id, true));
+					} catch (IllegalArgumentException ignored) {
+					}
+				}));
+
 		ClientPlayNetworking.registerGlobalReceiver(TerrainTilesPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> MapData.applyTiles(context.client(), payload)));
 

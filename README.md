@@ -17,8 +17,19 @@ In RP you paint the map yourself. In **WARS** the world is already full of natio
 - **Land can't be claimed** in WARS, and cities / villages / castles can't be placed as markers - they are real places. Other markers (arrows, home, danger...) still work.
 - Founding your own nation and joining nations come in later stages.
 
+## The economy (stage 2)
+- Every **Minecraft day** (20 minutes) each province works:
+  - **Food:** farms grow food (5 each, plus a little from gardens) and the villagers eat it (1 each). Spare food is stored.
+  - **Emeralds:** villagers earn emeralds (1 each, workshops +4). Unhappy villagers earn less. **Half goes to the nation as tax**, the rest stays in the village for building.
+  - **Upkeep:** the nation pays for the buildings every day. If its treasury runs dry, its villages get unhappy.
+  - **Growth:** with spare food, free beds (2 per house) and happy people the village grows; starving villages shrink. (While you are near a village, the real villagers are counted instead.)
+- **Happiness** (0-100%) goes down with hunger, overcrowding and unpaid upkeep, and up with food, new buildings and gifts.
+- **Buildings:** houses (12 emeralds, +2 beds), farms (8, +5 food a day) and workshops (20, +4 emeralds a day). They are paid by the village first, then by the nation's treasury, and are ready the next day. **AI nations decide by themselves** what their villages build.
+- **Talk to the mayor** (right-click him) to open the village page: villagers, beds, happiness, food, emeralds, income, tax, upkeep and buildings. You can **give the village real emeralds** from your inventory - the villagers like that. You can also open the village page by right-clicking the village on the map.
+- **Orders** can be given by the nation's leaders. Since players can't lead nations yet, a player in **creative mode** can give orders (for testing).
+- Every nation has a **treasury** kept by the server (it can't be stolen). The nation page shows it and how much it changes per day.
+
 ## Coming next
-2. Economy: emeralds, food, village income and upkeep, orders (build houses, farms).
 3. Joining nations and ranks, salaries, elections.
 4. Letters and diplomacy.
 5. War: divisions, battles, sieges.

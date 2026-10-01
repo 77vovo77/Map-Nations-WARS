@@ -49,6 +49,31 @@ public final class ProvinceData {
 	public boolean abandoned;
 	/** How many chunks its land covers. */
 	public int chunks;
+	// ---------------------------------------------------------------- economy (Map Nations WARS stage 2)
+	/** Buildings: houses give beds (2 each), farms give food, workshops give emeralds. */
+	public int houses;
+	public int farms;
+	public int workshops;
+	/** Food in the village's stores. */
+	public int food;
+	/** Emeralds the village keeps for building. */
+	public int funds;
+	/** 0 = furious, 100 = very happy. */
+	public int happiness = 60;
+	/** What is being built ("" = nothing), and how many days are left. */
+	public String building = "";
+	public int buildDays;
+	/** Yesterday's numbers, to show on the village page. */
+	public int lastFood;
+	public int lastIncome;
+	public int lastTax;
+	public int lastUpkeep;
+
+	/** How many villagers fit into the houses. */
+	public int beds() {
+		return this.houses * 2;
+	}
+
 	/** Its land (chunk keys). */
 	public final java.util.List<Long> area = new java.util.ArrayList<>();
 
@@ -77,6 +102,18 @@ public final class ProvinceData {
 		buf.writeVarInt(this.population);
 		buf.writeBoolean(this.capital);
 		buf.writeBoolean(this.abandoned);
+		buf.writeVarInt(this.houses);
+		buf.writeVarInt(this.farms);
+		buf.writeVarInt(this.workshops);
+		buf.writeVarInt(this.food);
+		buf.writeVarInt(this.funds);
+		buf.writeVarInt(this.happiness);
+		buf.writeUtf(this.building);
+		buf.writeVarInt(this.buildDays);
+		buf.writeInt(this.lastFood);
+		buf.writeInt(this.lastIncome);
+		buf.writeInt(this.lastTax);
+		buf.writeInt(this.lastUpkeep);
 		buf.writeVarInt(this.area.size());
 
 		for (long key : this.area) {
@@ -99,6 +136,18 @@ public final class ProvinceData {
 		p.population = buf.readVarInt();
 		p.capital = buf.readBoolean();
 		p.abandoned = buf.readBoolean();
+		p.houses = buf.readVarInt();
+		p.farms = buf.readVarInt();
+		p.workshops = buf.readVarInt();
+		p.food = buf.readVarInt();
+		p.funds = buf.readVarInt();
+		p.happiness = buf.readVarInt();
+		p.building = buf.readUtf();
+		p.buildDays = buf.readVarInt();
+		p.lastFood = buf.readInt();
+		p.lastIncome = buf.readInt();
+		p.lastTax = buf.readInt();
+		p.lastUpkeep = buf.readInt();
 		int n = buf.readVarInt();
 
 		for (int i = 0; i < n; i++) {

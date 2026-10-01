@@ -33,6 +33,10 @@ public final class NationData {
 	public Faction faction = Faction.PLAYER;
 	/** The name of an AI nation's ruler (AI nations have no player leader). */
 	public String rulerName = "";
+	/** Emeralds in the nation's treasury (kept by the server, can't be stolen). */
+	public long treasury = 0;
+	/** Treasury change on the last day (taxes minus upkeep). */
+	public int lastBalance = 0;
 
 	/** Members with the Officer rank: they can propose new territory. */
 	public final List<UUID> officers = new ArrayList<>();
@@ -99,6 +103,8 @@ public final class NationData {
 		buf.writeBoolean(this.ai);
 		buf.writeUtf(this.faction.name());
 		buf.writeUtf(this.rulerName);
+		buf.writeVarLong(this.treasury);
+		buf.writeInt(this.lastBalance);
 	}
 
 	public static NationData read(RegistryFriendlyByteBuf buf) {
@@ -117,6 +123,8 @@ public final class NationData {
 		n.ai = buf.readBoolean();
 		n.faction = Faction.byName(buf.readUtf());
 		n.rulerName = buf.readUtf();
+		n.treasury = buf.readVarLong();
+		n.lastBalance = buf.readInt();
 		return n;
 	}
 

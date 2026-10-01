@@ -1757,9 +1757,7 @@ public class MapScreen extends MapNationsBaseScreen {
 			MarkerData existing = this.markerAt(dim, click.x(), click.y());
 
 			if (existing != null && existing.province != null) {
-				if (existing.province.nation != null && ClientNations.get(existing.province.nation) != null) {
-					this.minecraft.gui.setScreen(new NationsScreen(existing.province.nation));
-				}
+				this.minecraft.gui.setScreen(new VillageScreen(this, existing.province.id, false));
 			} else if (existing != null) {
 				this.minecraft.gui.setScreen(new MarkerManageScreen(this, existing));
 			} else if (this.claimMode) {
@@ -2077,7 +2075,8 @@ public class MapScreen extends MapNationsBaseScreen {
 
 		if (p.type == com.mapnationswars.nation.ProvinceData.Type.VILLAGE && !p.abandoned) {
 			tip.text(Component.literal("Mayor: ").withColor(0xAAAAAA).append(Component.literal(p.mayorName).withColor(0xFFE0A0)));
-			tip.text(Component.literal("Villagers: " + p.population + "   Land: " + p.chunks + " chunks").withColor(0x9CE0A0));
+			tip.text(Component.literal("Villagers: " + p.population + " / " + p.beds() + " beds   Land: " + p.chunks + " chunks").withColor(0x9CE0A0));
+			tip.text(Component.literal("Happiness " + p.happiness + "%   Food " + p.food + " (" + (p.lastFood >= 0 ? "+" : "") + p.lastFood + "/day)").withColor(0xE8D27A));
 		} else if (p.abandoned) {
 			tip.text(Component.literal("Only zombies live here now").withColor(0x88AA66));
 		} else {
@@ -2085,7 +2084,7 @@ public class MapScreen extends MapNationsBaseScreen {
 			tip.text(Component.literal("Garrison: ~" + p.population + "   Land: " + p.chunks + " chunks").withColor(0xE0B0A0));
 		}
 
-		tip.text(Component.literal("X " + p.x + "  Z " + p.z + "   Right-click: nation page").withColor(0x777777));
+		tip.text(Component.literal("X " + p.x + "  Z " + p.z + "   Right-click: village page").withColor(0x777777));
 		tip.draw(graphics, this.font, mouseX, mouseY, this.width, this.height);
 	}
 

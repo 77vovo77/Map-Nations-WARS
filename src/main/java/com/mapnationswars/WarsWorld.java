@@ -120,9 +120,103 @@ public final class WarsWorld {
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(WarsWorld::tick);
+
+		// right-click a mayor: open the village page instead of trading
+		net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (!(entity instanceof Villager)) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+
+			if (level.isClientSide()) {
+				return entity.hasCustomName() && entity.getCustomName() != null && entity.getCustomName().getString().startsWith("Mayor ")
+						? net.minecraft.world.InteractionResult.SUCCESS : net.minecraft.world.InteractionResult.PASS;
+			}
+
+			ProvinceData p = provinceOfMayor(entity.getUUID());
+
+			if (p == null || !(player instanceof ServerPlayer sp)) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+
+			if (ServerPlayNetworking.canSend(sp, com.mapnationswars.network.OpenVillagePayload.TYPE)) {
+				ServerPlayNetworking.send(sp, new com.mapnationswars.network.OpenVillagePayload(p.id.toString(),
+						WarsItems.countEmeralds(sp), WarsEconomy.canOrder(sp, p)));
+			}
+
+			return net.minecraft.world.InteractionResult.SUCCESS;
+		});
+
+		ServerPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.VillageActionPayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			MinecraftServer server = player.level().getServer();
+
+			if (server == null) {
+				return;
+			}
+
+			server.execute(() -> {
+				ProvinceData p;
+
+				try {
+					p = PROVINCES.get(UUID.fromString(payload.province()));
+				} catch (IllegalArgumentException e) {
+					return;
+				}
+
+				if (p == null) {
+					return;
+				}
+
+				// you have to stand in the village to give emeralds; orders can be given from the map
+				if (payload.action() == com.mapnationswars.network.VillageActionPayload.DONATE) {
+					if (!player.level().dimension().identifier().toString().equals(p.dimension)
+							|| Math.hypot(player.getX() - p.x, player.getZ() - p.z) > 96) {
+						ServerNations.status(player, "Go to " + p.name + " to give its villagers emeralds.", false);
+						return;
+					}
+
+					WarsEconomy.donate(server, player, p, payload.amount());
+				} else if (payload.action() == com.mapnationswars.network.VillageActionPayload.ORDER) {
+					WarsEconomy.Build b = WarsEconomy.Build.byName(payload.argument());
+
+					if (b != null) {
+						WarsEconomy.order(server, player, p, b);
+					}
+				}
+			});
+		});
 	}
 
 	// ---------------------------------------------------------------- queries
+
+	static java.util.Collection<ProvinceData> provinces() {
+		return PROVINCES.values();
+	}
+
+	/** Is this entity the mayor of a village? Returns the village, or null. */
+	static ProvinceData provinceOfMayor(UUID entity) {
+		for (Map.Entry<UUID, UUID> e : MAYOR_ENTITY.entrySet()) {
+			if (e.getValue().equals(entity)) {
+				return PROVINCES.get(e.getKey());
+			}
+		}
+
+		return null;
+	}
+
+	static void saveNow() {
+		save();
+	}
+
+	/** Is anyone close enough that the province's chunk is loaded? (then real villagers are counted) */
+	static boolean isNearPlayer(MinecraftServer server, ProvinceData p) {
+		ServerLevel level = levelOf(server, p.dimension);
+		return level != null && level.getChunkSource().hasChunk(Math.floorDiv(p.x, 16), Math.floorDiv(p.z, 16));
+	}
+
+	static boolean isGenerated() {
+		return generated;
+	}
 
 	static ProvinceData province(UUID id) {
 		return PROVINCES.get(id);
@@ -208,6 +302,10 @@ public final class WarsWorld {
 		if (generated && ++ticks % 100 == 0) {
 			updateVillages(server);
 		}
+
+		if (generated) {
+			WarsEconomy.tick(server);
+		}
 	}
 
 	private static void addFound(Found f) {
@@ -241,6 +339,7 @@ public final class WarsWorld {
 				case MANSION -> 10 + random.nextInt(8);
 				case BASTION -> 8 + random.nextInt(10);
 			};
+			WarsEconomy.startingBuildings(p, random);
 			PROVINCES.put(p.id, p);
 		}
 
@@ -614,6 +713,24 @@ public final class WarsWorld {
 					p.population = o.get("population").getAsInt();
 					p.capital = o.get("capital").getAsBoolean();
 					p.abandoned = o.get("abandoned").getAsBoolean();
+
+					if (o.has("economy")) {
+						JsonObject eco = o.getAsJsonObject("economy");
+						p.houses = eco.get("houses").getAsInt();
+						p.farms = eco.get("farms").getAsInt();
+						p.workshops = eco.get("workshops").getAsInt();
+						p.food = eco.get("food").getAsInt();
+						p.funds = eco.get("funds").getAsInt();
+						p.happiness = eco.get("happiness").getAsInt();
+						p.building = eco.get("building").getAsString();
+						p.buildDays = eco.get("buildDays").getAsInt();
+						p.lastFood = eco.get("lastFood").getAsInt();
+						p.lastIncome = eco.get("lastIncome").getAsInt();
+						p.lastTax = eco.get("lastTax").getAsInt();
+						p.lastUpkeep = eco.get("lastUpkeep").getAsInt();
+					} else {
+						WarsEconomy.startingBuildings(p, new Random(p.id.getLeastSignificantBits()));
+					}
 					for (JsonElement c : o.getAsJsonArray("chunks")) {
 						p.area.add(c.getAsLong());
 					}
@@ -661,6 +778,20 @@ public final class WarsWorld {
 			o.addProperty("population", p.population);
 			o.addProperty("capital", p.capital);
 			o.addProperty("abandoned", p.abandoned);
+			JsonObject eco = new JsonObject();
+			eco.addProperty("houses", p.houses);
+			eco.addProperty("farms", p.farms);
+			eco.addProperty("workshops", p.workshops);
+			eco.addProperty("food", p.food);
+			eco.addProperty("funds", p.funds);
+			eco.addProperty("happiness", p.happiness);
+			eco.addProperty("building", p.building);
+			eco.addProperty("buildDays", p.buildDays);
+			eco.addProperty("lastFood", p.lastFood);
+			eco.addProperty("lastIncome", p.lastIncome);
+			eco.addProperty("lastTax", p.lastTax);
+			eco.addProperty("lastUpkeep", p.lastUpkeep);
+			o.add("economy", eco);
 			JsonArray chunks = new JsonArray();
 
 			for (long c : p.area) {

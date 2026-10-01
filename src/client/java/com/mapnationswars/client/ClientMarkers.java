@@ -55,6 +55,17 @@ public final class ClientMarkers {
 		rebuild();
 	}
 
+	/** A province by id (Map Nations WARS), or null. */
+	public static com.mapnationswars.nation.ProvinceData province(UUID id) {
+		for (MarkerData m : provinceMarkers) {
+			if (m.province != null && m.province.id.equals(id)) {
+				return m.province;
+			}
+		}
+
+		return null;
+	}
+
 	private static void rebuild() {
 		List<MarkerData> all = new java.util.ArrayList<>(provinceMarkers.size() + playerMarkers.size());
 		all.addAll(provinceMarkers);

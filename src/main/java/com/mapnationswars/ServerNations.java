@@ -1148,6 +1148,11 @@ public final class ServerNations {
 					n.rulerName = o.get("ruler").getAsString();
 				}
 
+				if (o.has("treasury")) {
+					n.treasury = o.get("treasury").getAsLong();
+					n.lastBalance = o.get("lastBalance").getAsInt();
+				}
+
 				if (n.ai) {
 					NATIONS.put(n.id, n); // run by the game: no players needed
 				} else if (!n.members.isEmpty()) {
@@ -1266,6 +1271,9 @@ public final class ServerNations {
 			if (!n.banner.isEmpty()) {
 				ItemStack.CODEC.encodeStart(ops, n.banner).result().ifPresent(json -> o.add("banner", json));
 			}
+
+			o.addProperty("treasury", n.treasury);
+			o.addProperty("lastBalance", n.lastBalance);
 
 			if (n.ai) {
 				o.addProperty("ai", true);

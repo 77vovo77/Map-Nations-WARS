@@ -17,6 +17,8 @@ import com.mapnationswars.network.NationActionPayload;
 import com.mapnationswars.network.NationsSyncPayload;
 import com.mapnationswars.network.PlayersPayload;
 import com.mapnationswars.network.ProvincesSyncPayload;
+import com.mapnationswars.network.OpenVillagePayload;
+import com.mapnationswars.network.VillageActionPayload;
 import com.mapnationswars.network.StatusPayload;
 import com.mapnationswars.network.TerrainRequestPayload;
 import com.mapnationswars.network.TerrainTilesPayload;
@@ -46,6 +48,8 @@ public class MapNationsMod implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(StatusPayload.TYPE, StatusPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MarkersSyncPayload.TYPE, MarkersSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ProvincesSyncPayload.TYPE, ProvincesSyncPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(OpenVillagePayload.TYPE, OpenVillagePayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(VillageActionPayload.TYPE, VillageActionPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(TerrainTilesPayload.TYPE, TerrainTilesPayload.CODEC);
 
 		ServerNations.init();
