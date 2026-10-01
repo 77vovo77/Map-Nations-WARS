@@ -79,6 +79,11 @@ public final class ProvinceData {
 		return this.unrest >= 85 ? "Revolt soon!" : this.unrest >= 60 ? "Angry" : this.unrest >= 30 ? "Restless" : "Calm";
 	}
 
+	/** Buildings finished but not yet standing in the world (server only, 2.0: they appear when someone is near). */
+	public int pendingHouses;
+	public int pendingFarms;
+	public int pendingWorkshops;
+
 	/** How many villagers fit into the houses. */
 	public int beds() {
 		return this.houses * 2;

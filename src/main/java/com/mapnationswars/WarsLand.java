@@ -29,10 +29,10 @@ public final class WarsLand {
 
 	private static int reach(ProvinceData p) {
 		return switch (p.type) {
-			case VILLAGE -> 8;
-			case OUTPOST -> 4;
-			case MANSION -> 8;
-			case BASTION -> 5;
+			case VILLAGE -> 10;
+			case OUTPOST -> 5;
+			case MANSION -> 9;
+			case BASTION -> 6;
 		};
 	}
 
@@ -59,25 +59,41 @@ public final class WarsLand {
 		ServerNations.setOwner(p.dimension, k, p.nation);
 	}
 
-	// ---------------------------------------------------------------- the game's nations grow by themselves
+	// ---------------------------------------------------------------- nations grow by themselves
+
+	private static int ticks = 0;
+
+	static void init() {
+		// every 2 minutes every province reaches out a little further (you can watch the borders grow on the map)
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+			if (++ticks % 2400 == 0 && WarsWorld.isGenerated()) {
+				grow(server);
+			}
+		});
+	}
 
 	static void runDay(MinecraftServer server) {
+		// (land now grows every 2 minutes, see init)
+	}
+
+	private static void grow(MinecraftServer server) {
 		boolean changed = false;
 
 		for (ProvinceData p : new ArrayList<>(WarsWorld.provinces())) {
 			NationData n = ServerNations.nation(p.nation);
 
-			if (n == null || !n.aiRuled() || p.abandoned || n.treasury < 10) {
+			// nations ruled by the game always grow; player-led ones too while their treasury has a reserve
+			if (n == null || p.abandoned || p.happiness < 30 || n.treasury < (n.aiRuled() ? 5 : 30)) {
 				continue;
 			}
 
-			int grow = p.happiness >= 60 ? 3 : p.happiness >= 40 ? 2 : 1;
+			int grow = p.happiness >= 60 ? 2 : 1;
 			ServerLevel level = WarsWorld.levelOf(server, p.dimension);
 			int pcx = Math.floorDiv(p.x, 16);
 			int pcz = Math.floorDiv(p.z, 16);
 			int r = reach(p);
 
-			for (int i = 0; i < grow && n.treasury >= 10; i++) {
+			for (int i = 0; i < grow && n.treasury >= 5; i++) {
 				// the free chunk next to its land that is closest to its centre
 				int[] best = null;
 				double bestD = Double.MAX_VALUE;
@@ -104,6 +120,7 @@ public final class WarsLand {
 
 				give(p, best[0], best[1]);
 				n.treasury -= 1;
+				n.book("New land", -1);
 				changed = true;
 			}
 		}
@@ -111,6 +128,8 @@ public final class WarsLand {
 		if (changed) {
 			WarsWorld.saveNow();
 			ServerNations.saveNow(server);
+			ServerNations.broadcast(server);
+			WarsWorld.broadcast(server);
 		}
 	}
 

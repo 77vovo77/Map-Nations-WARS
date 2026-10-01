@@ -573,7 +573,8 @@ public final class WarsWorld {
 			}
 
 			AABB box = new AABB(p.x - 56, level.getMinY(), p.z - 56, p.x + 56, level.getMinY() + level.getHeight(), p.z + 56);
-			List<Villager> villagers = level.getEntitiesOfClass(Villager.class, box);
+			List<Villager> villagers = new ArrayList<>(level.getEntitiesOfClass(Villager.class, box));
+			villagers.removeIf(WarsBuild::isWarMob); // soldiers and kings don't live here
 			int zombies = level.getEntitiesOfClass(ZombieVillager.class, box).size();
 
 			if (villagers.size() != p.population) {
@@ -767,6 +768,9 @@ public final class WarsWorld {
 					}
 
 					p.unrest = o.has("unrest") ? o.get("unrest").getAsInt() : 0;
+					p.pendingHouses = o.has("pendingHouses") ? o.get("pendingHouses").getAsInt() : 0;
+					p.pendingFarms = o.has("pendingFarms") ? o.get("pendingFarms").getAsInt() : 0;
+					p.pendingWorkshops = o.has("pendingWorkshops") ? o.get("pendingWorkshops").getAsInt() : 0;
 					p.conqueredDay = o.has("conquered") ? o.get("conquered").getAsLong() : -100;
 
 					for (JsonElement c : o.getAsJsonArray("chunks")) {
@@ -831,6 +835,9 @@ public final class WarsWorld {
 			eco.addProperty("lastUpkeep", p.lastUpkeep);
 			o.add("economy", eco);
 			o.addProperty("unrest", p.unrest);
+			o.addProperty("pendingHouses", p.pendingHouses);
+			o.addProperty("pendingFarms", p.pendingFarms);
+			o.addProperty("pendingWorkshops", p.pendingWorkshops);
 			o.addProperty("conquered", p.conqueredDay);
 			JsonArray chunks = new JsonArray();
 

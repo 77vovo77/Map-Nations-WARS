@@ -90,7 +90,16 @@ public class WarScreen extends PagedScreen {
 			}));
 		}
 
+		if (command) {
+			buttons.add(new ButtonSpec("Split", 44, b -> this.send(ArmyActionPayload.SPLIT, d, "", 0, 0)));
+			buttons.add(new ButtonSpec("Merge", 48, b -> this.send(ArmyActionPayload.MERGE, d, "", 0, 0)));
+		}
+
 		if (raise) {
+			int price = d.kind.hirePrice;
+			buttons.add(new ButtonSpec("Hire +1 (" + price + ")", 76, b -> this.send(ArmyActionPayload.HIRE, d, "", 1, 0)));
+			buttons.add(new ButtonSpec("Hire +5 (" + price * 5 + ")", 82, b -> this.send(ArmyActionPayload.HIRE, d, "", 5, 0)));
+			buttons.add(new ButtonSpec("Fill up", 52, b -> this.send(ArmyActionPayload.HIRE, d, "", d.kind.maxStrength, 0)));
 			buttons.add(new ButtonSpec("Disband", 56, b -> {
 				this.send(ArmyActionPayload.DISBAND, d, "", 0, 0);
 				this.selected = null;
@@ -386,7 +395,9 @@ public class WarScreen extends PagedScreen {
 				? "   ~" + (int) (Math.hypot(d.goalX - d.x, d.goalZ - d.z) / d.kind.speed) + " s to go" : ""), x, y, 0xFF9AA0A6);
 		y += 16;
 		String stats = "Attack " + d.kind.attack + "   Defence " + d.kind.defence + "   Speed " + d.kind.speed + "   Siege " + d.kind.siege
-				+ "   Upkeep " + d.kind.upkeep() + "/day";
+				+ "   Upkeep " + d.kind.upkeep(d.strength) + "/day   Hire: " + d.kind.hirePrice + " a soldier (in your land)   "
+				+ "One " + (ClientNations.get(d.nation) != null ? d.kind.unitName(ClientNations.get(d.nation).faction) : d.kind.displayName)
+				+ " in the world = " + d.kind.perTroop + " soldiers";
 		y += this.drawWrapped(graphics, stats, x, y, w, 0xFF9AA0A6);
 
 		if (!ClientWar.canCommand(d, this.me())) {

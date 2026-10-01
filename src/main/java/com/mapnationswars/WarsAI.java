@@ -394,7 +394,8 @@ public final class WarsAI {
 				break;
 			}
 
-			WarsWar.raiseDivision(n, p, kind);
+			DivisionData fresh = WarsWar.raiseDivision(n, p, kind);
+			WarsWar.hire(n, fresh, fresh.kind.maxStrength); // fill it up if the treasury allows
 			raised++;
 		}
 

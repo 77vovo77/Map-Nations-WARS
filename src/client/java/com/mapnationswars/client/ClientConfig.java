@@ -14,10 +14,10 @@ import com.mapnationswars.MapNationsMod;
 /** Your own settings (saved in .minecraft/config/mapnationswars-client.properties). */
 final class ClientConfig {
 	private static boolean loaded = false;
-	/** The small map in the bottom-left corner. Off until you turn it on in the map. */
+	/** The small map in a corner (top-left by default). Off until you turn it on in the map. */
 	private static boolean minimap = false;
 	/** 0 = bottom-left (chat is drawn over it), 1 = top-left, 2 = top-right */
-	private static int minimapCorner = 0;
+	private static int minimapCorner = 1; // top-left: the bottom corners covered the player's arm
 	/** 0 = small, 1 = medium, 2 = large */
 	private static int minimapSize = 0;
 	static final String[] CORNERS = {"Bottom-left", "Top-left", "Top-right"};
@@ -81,7 +81,7 @@ final class ClientConfig {
 		try (Reader in = Files.newBufferedReader(file)) {
 			props.load(in);
 			minimap = Boolean.parseBoolean(props.getProperty("minimap", "false"));
-			minimapCorner = Math.floorMod(parseInt(props.getProperty("minimapCorner"), 0), CORNERS.length);
+			minimapCorner = Math.floorMod(parseInt(props.getProperty("minimapPlace"), 1), CORNERS.length); // new key in 2.0: everyone starts top-left
 			minimapSize = Math.floorMod(parseInt(props.getProperty("minimapSize"), 0), SIZES.length);
 		} catch (IOException e) {
 			MapNationsMod.LOGGER.warn("Could not read {}", file, e);
@@ -92,7 +92,7 @@ final class ClientConfig {
 		Path file = file();
 		Properties props = new Properties();
 		props.setProperty("minimap", Boolean.toString(minimap));
-		props.setProperty("minimapCorner", Integer.toString(minimapCorner));
+		props.setProperty("minimapPlace", Integer.toString(minimapCorner));
 		props.setProperty("minimapSize", Integer.toString(minimapSize));
 
 		try {

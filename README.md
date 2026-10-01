@@ -55,11 +55,11 @@ In RP you paint the map yourself. In **WARS** the world is already full of natio
 - The **Relations** view in the Letters tab shows how every nation sees yours. Each nation page shows its opinion of you, any war, alliance or trade deal, and a **Write a letter** button.
 
 ## War (stage 5)
-- **Raising armies.** Leaders and Ministers raise armies at any province of their nation: right-click it on the map, or talk to its mayor. They are paid from the treasury.
-  - **Infantry** costs 40 emeralds: 100 soldiers, a solid defence.
-  - **Cavalry** costs 70: fast and hits hard.
-  - **Archers** cost 55.
-  - **Siege** costs 90: slow and weak in battle, but takes provinces three times faster.
+- **Raising armies.** Leaders and Ministers raise armies at any province of their nation: right-click it on the map, or talk to its mayor. They are paid from the treasury (since 2.0 a division starts at half strength; hire the rest).
+  - **Infantry** costs 30 emeralds: up to 24 soldiers, a solid defence.
+  - **Cavalry** (iron golems for villagers) costs 50: fast and hits hard.
+  - **Archers** cost 40.
+  - **Siege** costs 60: slow and weak in battle, but takes provinces three times faster.
   - Every faction names its soldiers its own way: Militia and Lancers, Vindicators and Ravager Riders, Brutes and Hoglin Riders, the Horde and Bone Archers.
   - A nation can keep 2 armies plus 1 per province. Each army costs upkeep every day.
 - **Commanding.** Officers, Ministers and the leader command armies. In the **Map** tab, left-click one of your armies to pick it, then right-click where it should march. Right-click an enemy province to besiege it, or one of your own to defend it.
@@ -136,6 +136,32 @@ Nations ruled by the game now act on their own.
   - **Fight at the rift.** Near an open rift, Nether creatures come out for any player close by: zombified piglins, magma cubes and blazes. Every Nether creature you kill there closes the rift 2 minutes sooner.
 - **Invasions both ways.** Armies can march through open rifts and through any portal players built. Pick an army in the War tab and press **Through a portal**: it marches to the nearest usable portal and comes out on the other side, at the same place divided by 8 in the Nether.
   - The AI uses portals too. Piglin clans at war with Overworld nations come through, and Overworld nations at war with piglins invade the Nether to besiege their bastions.
+
+## 2.0.0 - Armies you can see, real kings, growing villages
+- **Armies stand in the world.** Come within about 128 blocks of a division and it appears as real soldiers. Each one stands for 2-3 soldiers, up to 12 per division. They march in formation where the division marches and fight the soldiers of nations at war with them, and any player at war with them. Every soldier killed in the world is lost by the division, so you can see the battle and help win it. When nobody is near, they go back into the map.
+  - **Villagers:** villager militia with iron swords, villager bowmen who shoot arrows, and iron golem divisions.
+  - **Illagers:** vindicators, pillagers and ravagers.
+  - **Piglins:** brutes, crossbow piglins and hoglins. They no longer turn into zombies in the Overworld.
+  - **The undead:** husks, skeletons, wither-skeleton "Death Knights" and zombies.
+  - Besieged provinces send their own defenders out to fight the besiegers.
+- **Smaller divisions you build up.** A new division starts with half its soldiers:
+  - Infantry: up to 24 soldiers.
+  - Golems / cavalry: up to 12.
+  - Archers: up to 20.
+  - Siege: up to 8.
+
+  In the War tab, **Hire** soldiers (+1, +5 or fill up) with treasury emeralds while the division is in your land. **Split** a division in two, or **Merge** it with another of the same kind nearby. Upkeep depends on how many soldiers it has.
+- **Real kings.** Every nation ruled by the game has its ruler standing at its capital, with a crown, a sceptre and a royal name. The villager king wears purple; illagers have an evoker lord, piglins a warlord brute and the undead a wither-skeleton lich.
+  - **Right-click the king** to open the **Royal Court**. There you can swear allegiance, ask for promotion or a duty, give 10 or 50 emeralds, write to the crown, beg for peace or declare your own war, and see the nation's state.
+  - **Killing a king** is regicide: unrest everywhere, and a new ruler after 5 minutes. In war it earns you great merit; otherwise every guard of that nation hunts you.
+- **Villages really grow.** Houses (with a bed), wheat farms (with water) and workshops (crafting table and furnace) a village builds now appear next to it in the world when someone is near. Villages with free beds, food and good mood have children.
+- **Nations claim the land around them.** Every 2 minutes every province reaches a little further into the wild, until it meets its neighbours. You can watch the borders grow on the map.
+- **A deeper treasury** (Nations page → Treasury, or the You tab):
+  - **Yesterday's accounts,** line by line: taxes, building upkeep, salaries, army upkeep, hired soldiers, trade, tribute, new land, festivals.
+  - **Tax level:** Low 30%, Normal 50%, High 65% or Harsh 80% of the villages' income. Higher taxes make villages less happy.
+  - **Spending:** a **Festival** (+10 happiness, -12 unrest everywhere) or **Grain imports** (+20 food everywhere), once a day each.
+- **Your nation's stats on the map:** the top-left corner shows your nation, your rank and merit, the treasury, taxes, provinces, villagers, armies, unrest and wars.
+- **The minimap starts in the top-left corner**, so it no longer covers your arm.
 
 ## Politics for everyone (1.9.0)
 - **The "You" tab** (second tab, press **M**) explains everything one player can do, with your progress and a button for every action:

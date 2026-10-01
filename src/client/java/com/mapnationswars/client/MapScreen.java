@@ -319,6 +319,67 @@ public class MapScreen extends MapNationsBaseScreen {
 		savedCenterZ = z;
 	}
 
+	/** Your nation at a glance, in the top-left corner (2.0). */
+	private void drawNationStats(GuiGraphicsExtractor graphics) {
+		if (this.claimMode && this.editingArea != null) {
+			return;
+		}
+
+		NationData n = ClientNations.myNation();
+		List<Component> lines = new ArrayList<>();
+		UUID me = this.myId();
+
+		if (n == null) {
+			lines.add(Component.literal("No nation yet").withStyle(st -> st.withColor(0xFFE0A0).withBold(true)));
+			lines.add(Component.literal("Open the You tab to begin").withColor(0x9AA0A6));
+		} else {
+			int provinces = 0;
+			int unrest = 0;
+
+			for (MarkerData m : ClientMarkers.all()) {
+				if (m.province != null && n.id.equals(m.province.nation)) {
+					provinces++;
+					unrest += m.province.unrest;
+				}
+			}
+
+			StringBuilder wars = new StringBuilder();
+
+			for (NationData o : ClientNations.all()) {
+				if (o != n && ClientDiplomacy.atWar(n.id, o.id)) {
+					wars.append(wars.length() == 0 ? "" : ", ").append(o.name);
+				}
+			}
+
+			String role = n.leader.equals(me) ? n.ideology.leaderTitle : com.mapnationswars.nation.Ranks.name(n.rankOf(me));
+			lines.add(Component.literal(n.name).withStyle(st -> st.withColor(n.color).withBold(true)));
+			lines.add(Component.literal(role + "  \u00B7  merit " + n.merit.getOrDefault(me, 0)).withColor(0xFFE0A0));
+			lines.add(Component.literal("\u2666 " + n.treasury + " (" + (n.lastBalance >= 0 ? "+" : "") + n.lastBalance + "/day)  taxes "
+					+ NationData.TAX_NAMES[Math.max(0, Math.min(3, n.taxLevel))].toLowerCase()).withColor(0x9CFF9C));
+			lines.add(Component.literal(provinces + " provinces  \u00B7  " + n.population + " villagers  \u00B7  " + ClientWar.of(n.id).size() + " armies").withColor(0xDDDDDD));
+			lines.add(Component.literal("Unrest " + (provinces == 0 ? 0 : unrest / provinces) + "%").withColor(provinces > 0 && unrest / provinces >= 50 ? 0xFF8060 : 0xBBBBBB));
+			String w = wars.length() == 0 ? "At peace" : "\u2694 War: " + wars;
+			lines.add(Component.literal(w.length() > 40 ? w.substring(0, 38) + "..." : w).withColor(wars.length() == 0 ? 0x9CFF9C : 0xFF7060));
+		}
+
+		int width = 0;
+
+		for (Component c : lines) {
+			width = Math.max(width, this.font.width(c.getString()));
+		}
+
+		int x = 6;
+		int y = TOP_BAR + 6;
+		int h = lines.size() * 11 + 6;
+		graphics.fill(x - 1, y - 1, x + width + 11, y + h + 1, 0xFF3A4048);
+		graphics.fill(x, y, x + width + 10, y + h, 0xD0101317);
+		graphics.fill(x, y, x + 2, y + h, n != null ? 0xFF000000 | n.color : 0xFFFFD54F);
+
+		for (int i = 0; i < lines.size(); i++) {
+			graphics.text(this.font, lines.get(i), x + 6, y + 4 + i * 11, 0xFFFFFFFF, true);
+		}
+	}
+
 	private boolean mayClaim() {
 		NationData mine = ClientNations.myNation();
 		UUID me = this.myId();
@@ -435,6 +496,7 @@ public class MapScreen extends MapNationsBaseScreen {
 
 		graphics.nextStratum(); // screen overlays above the map
 		this.drawTopBar(graphics);
+		this.drawNationStats(graphics);
 		this.drawCompass(graphics);
 
 		this.hintBottom = this.drawControlsHint(graphics);

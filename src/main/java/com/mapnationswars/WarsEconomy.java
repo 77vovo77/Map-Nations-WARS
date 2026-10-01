@@ -117,6 +117,10 @@ public final class WarsEconomy {
 	static void runDay(MinecraftServer server) {
 		Map<UUID, Integer> balance = new HashMap<>();
 
+		for (NationData n : ServerNations.allNations()) {
+			n.ledger.clear(); // a new day's accounts
+		}
+
 		for (ProvinceData p : WarsWorld.provinces()) {
 			NationData n = ServerNations.nation(p.nation);
 
@@ -133,7 +137,7 @@ public final class WarsEconomy {
 
 			// emeralds: the village keeps part, the nation gets the tax
 			int income = income(p);
-			int tax = (int) Math.round(income * TAX);
+			int tax = (int) Math.round(income * (n != null ? n.taxRate() : TAX));
 			p.lastIncome = income;
 			p.lastTax = tax;
 			p.funds += income - tax;
@@ -141,18 +145,24 @@ public final class WarsEconomy {
 
 			if (n != null) {
 				balance.merge(n.id, tax - p.lastUpkeep, Integer::sum);
+				n.book("Taxes", tax);
+				n.book("Buildings upkeep", -p.lastUpkeep);
 			}
 
 			// building
 			if (!p.building.isEmpty() && --p.buildDays <= 0) {
 				Build b = Build.byName(p.building);
 
+				// and it will stand in the world, too (WarsBuild)
 				if (b == Build.HOUSE) {
 					p.houses++;
+					p.pendingHouses++;
 				} else if (b == Build.FARM) {
 					p.farms++;
+					p.pendingFarms++;
 				} else if (b == Build.WORKSHOP) {
 					p.workshops++;
+					p.pendingWorkshops++;
 				}
 
 				p.building = "";
@@ -161,7 +171,7 @@ public final class WarsEconomy {
 			}
 
 			// happiness moves towards what the village feels
-			int target = 62;
+			int target = 62 + (n != null ? NationData.TAX_MOOD[Math.max(0, Math.min(3, n.taxLevel))] : 0);
 			target += starving ? -35 : (p.lastFood > 0 ? 8 : 0);
 			target += p.population > p.beds() && p.type == ProvinceData.Type.VILLAGE ? -10 : 0;
 			p.happiness += (int) Math.round((target - p.happiness) * 0.25);
@@ -222,6 +232,18 @@ public final class WarsEconomy {
 		WarsAI.runDay(server);
 		WarsWar.runDay(server);
 		WarsWar.broadcast(server);
+
+		// the day's balance is everything in the ledger
+		for (NationData n : ServerNations.allNations()) {
+			int sum = 0;
+
+			for (int v : n.ledger.values()) {
+				sum += v;
+			}
+
+			n.lastBalance = sum;
+		}
+
 		WarsWorld.saveNow();
 		ServerNations.saveNow(server);
 		ServerNations.broadcast(server);
@@ -250,6 +272,92 @@ public final class WarsEconomy {
 		p.building = b.name();
 		p.buildDays = 1;
 		return null;
+	}
+
+	// ---------------------------------------------------------------- the treasury (2.0)
+
+	private static final Map<UUID, Long> LAST_SPEND = new HashMap<>();
+
+	private static NationData ruled(ServerPlayer player) {
+		NationData n = ServerNations.nationOf(player.getUUID());
+
+		if (n == null || !(n.leader.equals(player.getUUID()) || n.rankOf(player.getUUID()) >= com.mapnationswars.nation.Ranks.MINISTER)) {
+			ServerNations.status(player, "Only the leader and Ministers handle the treasury.", false);
+			return null;
+		}
+
+		return n;
+	}
+
+	static void setTax(MinecraftServer server, ServerPlayer player, int level) {
+		NationData n = ruled(player);
+
+		if (n == null) {
+			return;
+		}
+
+		n.taxLevel = Math.max(0, Math.min(3, level));
+		ServerNations.status(player, "Taxes are now " + NationData.TAX_NAMES[n.taxLevel].toLowerCase() + " (" + (int) (n.taxRate() * 100)
+				+ "% of the villages' income). " + (n.taxLevel >= 2 ? "The villages won't like it." : n.taxLevel == 0 ? "The villages are glad." : ""), true);
+		ServerNations.saveNow(server);
+		ServerNations.broadcast(server);
+	}
+
+	/** Spending the treasury on the people: a festival (+happiness, -unrest) or grain imports (+food). Once a day each. */
+	static void treasuryAction(MinecraftServer server, ServerPlayer player, String action) {
+		NationData n = ruled(player);
+
+		if (n == null) {
+			return;
+		}
+
+		java.util.List<ProvinceData> ours = new java.util.ArrayList<>();
+
+		for (ProvinceData p : WarsWorld.provinces()) {
+			if (n.id.equals(p.nation) && !p.abandoned) {
+				ours.add(p);
+			}
+		}
+
+		long day = server.overworld().getGameTime() / DAY_TICKS;
+		UUID key = new UUID(n.id.getMostSignificantBits(), n.id.getLeastSignificantBits() ^ action.hashCode());
+
+		if (LAST_SPEND.getOrDefault(key, -1L) == day) {
+			ServerNations.status(player, "That was already done today.", false);
+			return;
+		}
+
+		boolean festival = "FESTIVAL".equals(action);
+		int cost = Math.max(5, ours.size() * (festival ? 6 : 3));
+
+		if (n.treasury < cost) {
+			ServerNations.status(player, "That costs " + cost + " emeralds; the treasury has " + n.treasury + ".", false);
+			return;
+		}
+
+		n.treasury -= cost;
+		n.book(festival ? "Festival" : "Grain imports", -cost);
+		LAST_SPEND.put(key, day);
+
+		for (ProvinceData p : ours) {
+			if (festival) {
+				p.happiness = Math.min(100, p.happiness + 10);
+				p.unrest = Math.max(0, p.unrest - 12);
+			} else {
+				p.food += 20;
+			}
+		}
+
+		if (festival) {
+			WarsDiplomacy.news(server, "\u2728 " + n.name + " holds a great festival! The villages celebrate.");
+		} else {
+			ServerNations.status(player, "Grain was bought for every village (+20 food each) for " + cost + " emeralds.", true);
+		}
+
+		WarsWorld.saveNow();
+		ServerNations.saveNow(server);
+		ServerNations.broadcast(server);
+		WarsWorld.broadcast(server);
 	}
 
 	// ---------------------------------------------------------------- player actions

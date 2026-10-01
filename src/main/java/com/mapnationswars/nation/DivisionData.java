@@ -11,35 +11,57 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
  */
 public final class DivisionData {
 	public enum Kind {
-		// cost, soldiers, attack, defence, speed (blocks / second), siege power
-		INFANTRY("Infantry", 40, 100, 1.0, 1.2, 3.0, 1.0, "⚔"),
-		CAVALRY("Cavalry", 70, 60, 1.5, 0.8, 7.0, 0.5, "♞"),
-		ARCHERS("Archers", 55, 80, 1.3, 0.9, 3.0, 0.8, "➹"),
-		SIEGE("Siege", 90, 40, 0.6, 0.5, 1.5, 3.0, "♜");
+		// cost to raise (with half the soldiers), most soldiers, price to hire one more, attack, defence, speed (blocks / second),
+		// siege power, soldiers one visible troop stands for
+		INFANTRY("Infantry", 30, 24, 3, 1.0, 1.2, 3.0, 1.0, 2, "\u2694"),
+		CAVALRY("Cavalry", 50, 12, 6, 1.6, 1.0, 6.0, 0.6, 3, "\u265E"),
+		ARCHERS("Archers", 40, 20, 4, 1.3, 0.8, 3.0, 0.8, 2, "\u27B9"),
+		SIEGE("Siege", 60, 8, 8, 0.8, 0.8, 1.5, 3.0, 2, "\u265C");
 
 		public final String displayName;
 		public final int cost;
 		public final int maxStrength;
+		public final int hirePrice;
 		public final double attack;
 		public final double defence;
 		public final double speed;
 		public final double siege;
+		/** One mob you see in the world stands for this many soldiers. */
+		public final int perTroop;
 		public final String symbol;
 
-		Kind(String displayName, int cost, int maxStrength, double attack, double defence, double speed, double siege, String symbol) {
+		Kind(String displayName, int cost, int maxStrength, int hirePrice, double attack, double defence, double speed, double siege,
+				int perTroop, String symbol) {
 			this.displayName = displayName;
 			this.cost = cost;
 			this.maxStrength = maxStrength;
+			this.hirePrice = hirePrice;
 			this.attack = attack;
 			this.defence = defence;
 			this.speed = speed;
 			this.siege = siege;
+			this.perTroop = perTroop;
 			this.symbol = symbol;
 		}
 
-		/** Emeralds a day to keep the division. */
+		/** Soldiers a newly raised division starts with. */
+		public int startStrength() {
+			return this.maxStrength / 2;
+		}
+
+		/** Most mobs shown in the world for one division. */
+		public int maxTroops() {
+			return (this.maxStrength + this.perTroop - 1) / this.perTroop;
+		}
+
+		/** Emeralds a day for a division of this many soldiers. */
+		public int upkeep(double soldiers) {
+			return Math.max(1, (int) Math.round(soldiers * this.hirePrice / 10.0));
+		}
+
+		/** Emeralds a day at full strength (shown before raising). */
 		public int upkeep() {
-			return Math.max(2, this.cost / 10);
+			return this.upkeep(this.maxStrength);
 		}
 
 		/** What the soldiers are called in each faction. */
@@ -47,27 +69,53 @@ public final class DivisionData {
 			return switch (f) {
 				case ILLAGER -> switch (this) {
 					case INFANTRY -> "Vindicators";
-					case CAVALRY -> "Ravager Riders";
+					case CAVALRY -> "Ravagers";
 					case ARCHERS -> "Pillagers";
 					case SIEGE -> "Siege Ravagers";
 				};
 				case PIGLIN -> switch (this) {
 					case INFANTRY -> "Brutes";
-					case CAVALRY -> "Hoglin Riders";
+					case CAVALRY -> "Hoglins";
 					case ARCHERS -> "Crossbow Piglins";
 					case SIEGE -> "Gold Rams";
 				};
 				case UNDEAD -> switch (this) {
 					case INFANTRY -> "Horde";
-					case CAVALRY -> "Skeleton Riders";
+					case CAVALRY -> "Death Knights";
 					case ARCHERS -> "Bone Archers";
-					case SIEGE -> "Abominations";
+					case SIEGE -> "Ghouls";
 				};
 				default -> switch (this) {
 					case INFANTRY -> "Militia";
-					case CAVALRY -> "Lancers";
+					case CAVALRY -> "Iron Golems";
 					case ARCHERS -> "Bowmen";
-					case SIEGE -> "Battering Rams";
+					case SIEGE -> "Golem Rams";
+				};
+			};
+		}
+
+		/** The mob that stands for one troop in the world (an entity type constant name). */
+		public String troopType(Faction f, boolean nether) {
+			return switch (f) {
+				case ILLAGER -> switch (this) {
+					case INFANTRY -> "VINDICATOR";
+					case CAVALRY, SIEGE -> "RAVAGER";
+					case ARCHERS -> "PILLAGER";
+				};
+				case PIGLIN -> switch (this) {
+					case INFANTRY, SIEGE -> "PIGLIN_BRUTE";
+					case CAVALRY -> "HOGLIN";
+					case ARCHERS -> "PIGLIN";
+				};
+				case UNDEAD -> switch (this) {
+					case INFANTRY -> "HUSK";
+					case CAVALRY -> "WITHER_SKELETON";
+					case ARCHERS -> "SKELETON";
+					case SIEGE -> "ZOMBIE";
+				};
+				default -> switch (this) {
+					case INFANTRY, ARCHERS -> "VILLAGER"; // villager soldiers: swords and bows
+					case CAVALRY, SIEGE -> "IRON_GOLEM";
 				};
 			};
 		}

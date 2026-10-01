@@ -348,6 +348,8 @@ public final class WarsDiplomacy {
 					long paid = Math.min(l.amount, to.treasury);
 					to.treasury -= paid;
 					from.treasury += paid;
+					to.book("Tribute to " + from.name, (int) -paid);
+					from.book("Tribute from " + to.name, (int) paid);
 					l.reply = l.reply + " Paid " + paid + " emeralds.";
 					change(from.id, to.id, -20);
 				} else {
@@ -599,6 +601,8 @@ public final class WarsDiplomacy {
 				if (a != null && b != null) {
 					a.treasury += TRADE_INCOME;
 					b.treasury += TRADE_INCOME;
+					a.book("Trade with " + b.name, TRADE_INCOME);
+					b.book("Trade with " + a.name, TRADE_INCOME);
 				}
 			}
 

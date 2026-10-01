@@ -212,7 +212,7 @@ public final class WarsRevolts {
 	private static void freeMilitia(NationData n, ProvinceData p, String name) {
 		n.treasury += DivisionData.Kind.INFANTRY.cost;
 		DivisionData d = WarsWar.raiseDivision(n, p, DivisionData.Kind.INFANTRY);
-		d.strength = Math.min(DivisionData.Kind.INFANTRY.maxStrength, 30 + p.population * 6);
+		d.strength = Math.min(DivisionData.Kind.INFANTRY.maxStrength, 8 + p.population);
 		d.morale = 90;
 		d.name = name + " of " + p.name;
 	}

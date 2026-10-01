@@ -15,6 +15,12 @@ public record ArmyActionPayload(int action, String id, String argument, int x, i
 	/** id = division */
 	public static final int HALT = 2;
 	public static final int DISBAND = 3;
+	/** id = division, x = how many soldiers to hire */
+	public static final int HIRE = 4;
+	/** id = division: split it in two */
+	public static final int SPLIT = 5;
+	/** id = division: the nearest division of the same kind joins it */
+	public static final int MERGE = 6;
 
 	public static final CustomPacketPayload.Type<ArmyActionPayload> TYPE =
 			new CustomPacketPayload.Type<>(MapNationsMod.id("army_action"));

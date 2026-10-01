@@ -40,6 +40,7 @@ public class CareerScreen extends PagedScreen {
 		REVOLT("Revolts"),
 		FOUND("Your own nation"),
 		WARS("Personal wars"),
+		TREASURY("Treasury"),
 		LAND("Land"),
 		ARMY("Armies");
 
@@ -213,6 +214,7 @@ public class CareerScreen extends PagedScreen {
 			case REVOLT -> this.revolt();
 			case FOUND -> this.found();
 			case WARS -> this.wars();
+			case TREASURY -> this.treasury();
 			case LAND -> this.land();
 			case ARMY -> this.army();
 		}
@@ -262,6 +264,7 @@ public class CareerScreen extends PagedScreen {
 
 				yield wars == 0 ? "at peace" : wars + " personal war" + (wars == 1 ? "" : "s");
 			}
+			case TREASURY -> mine == null ? "-" : mine.treasury + " emeralds";
 			case LAND -> "claiming land";
 			case ARMY -> ClientWar.of(mine != null ? mine.id : new UUID(0, 0)).size() + " armies";
 		};
@@ -580,6 +583,88 @@ public class CareerScreen extends PagedScreen {
 				this.button("☘ Ask for peace", () -> this.open(new LettersScreen(null, LetterData.Type.PEACE))),
 				this.button("✉ Gift (win them over)", () -> this.open(new LettersScreen(null, LetterData.Type.GIFT)))));
 		this.text("Peace costs at least 30 emeralds (sent with the letter).", 0xFF9AA0A6);
+	}
+
+	/** Opens the You tab on the treasury page. */
+	static CareerScreen treasuryPage() {
+		section = Section.TREASURY;
+		return new CareerScreen();
+	}
+
+	private void treasury() {
+		NationData mine = ClientNations.myNation();
+		this.title("Treasury", 0xFF9CFF9C);
+
+		if (mine == null) {
+			this.text("Join a nation to see its treasury.", 0xFF888888);
+			return;
+		}
+
+		boolean may = mine.leader.equals(this.me()) || mine.rankOf(this.me()) >= Ranks.MINISTER;
+		this.text(mine.name + " has " + mine.treasury + " emeralds (" + (mine.lastBalance >= 0 ? "+" : "") + mine.lastBalance + " yesterday).", 0xFFFFFFFF);
+		this.heading("Yesterday's accounts");
+
+		if (mine.ledger.isEmpty()) {
+			this.text("Nothing yet - the accounts are made at the end of each day (every 20 minutes).", 0xFF888888);
+		}
+
+		for (Map.Entry<String, Integer> e : mine.ledger.entrySet()) {
+			int v = e.getValue();
+			this.text((v >= 0 ? "+" : "") + v + "   " + e.getKey(), v >= 0 ? 0xFF9CFF9C : 0xFFFF8A80);
+		}
+
+		this.heading("Taxes: " + NationData.TAX_NAMES[Math.max(0, Math.min(3, mine.taxLevel))]);
+		this.text("The villages give the nation part of what they earn. Higher taxes fill the treasury but make the villages unhappy "
+				+ "(and unhappy villages work less, grow slower and may revolt).", 0xFFBBBBBB);
+
+		for (int i = 0; i < 4; i++) {
+			this.text((i == mine.taxLevel ? "\u25CF " : "   ") + NationData.TAX_NAMES[i] + ": " + (int) (NationData.TAX_RATES[i] * 100)
+					+ "% of income, mood " + (NationData.TAX_MOOD[i] >= 0 ? "+" : "") + NationData.TAX_MOOD[i], i == mine.taxLevel ? 0xFFFFE0A0 : 0xFF9AA0A6);
+		}
+
+		if (may) {
+			List<ButtonSpec> taxes = new ArrayList<>();
+
+			for (int i = 0; i < 4; i++) {
+				int level = i;
+				taxes.add(this.button(NationData.TAX_NAMES[i], () -> {
+					if (ClientPlayNetworking.canSend(NationActionPayload.TYPE)) {
+						ClientPlayNetworking.send(new NationActionPayload(NationActionPayload.SET_TAX, "", "", level, "", 0));
+					}
+				}));
+			}
+
+			this.buttons(taxes);
+		}
+
+		this.heading("Spend on the people");
+		int provinces = 0;
+
+		for (MarkerData m : ClientMarkers.all()) {
+			if (m.province != null && mine.id.equals(m.province.nation)) {
+				provinces++;
+			}
+		}
+
+		this.text("Festival: +10 happiness and -12 unrest in every village (" + Math.max(5, provinces * 6) + " emeralds, once a day).", 0xFFDDDDDD);
+		this.text("Grain imports: +20 food in every village (" + Math.max(5, provinces * 3) + " emeralds, once a day).", 0xFFDDDDDD);
+
+		if (may) {
+			this.buttons(List.of(this.button("\u2728 Hold a festival", () -> this.treasuryAction("FESTIVAL")),
+					this.button("\u2698 Buy grain", () -> this.treasuryAction("GRAIN"))));
+		} else {
+			this.text("The leader and Ministers decide how the treasury is spent.", 0xFF888888);
+		}
+
+		this.heading("Where the money comes from and goes");
+		this.text("In: taxes from every village (its income comes from its villagers and workshops), trade agreements, tribute. "
+				+ "Out: upkeep of the villages' buildings, salaries of the members, armies (upkeep, hiring soldiers), new land, festivals.", 0xFF9AA0A6);
+	}
+
+	private void treasuryAction(String action) {
+		if (ClientPlayNetworking.canSend(NationActionPayload.TYPE)) {
+			ClientPlayNetworking.send(new NationActionPayload(NationActionPayload.TREASURY, "", "", 0, action, 0));
+		}
 	}
 
 	private void land() {

@@ -73,7 +73,6 @@ public final class WarsWar {
 	private static final Map<UUID, Siege> SIEGES = new LinkedHashMap<>();
 	/** How many divisions each nation has raised (for names like "3rd Militia"). */
 	private static final Map<UUID, Integer> RAISED = new HashMap<>();
-	private static final Map<UUID, Soldier> SOLDIERS = new HashMap<>();
 	private static final Set<String> BATTLE_KEYS = new HashSet<>();
 	private static List<WarSyncPayload.Battle> battles = new ArrayList<>();
 	private static final Random RANDOM = new Random();
@@ -95,8 +94,6 @@ public final class WarsWar {
 	}
 
 	/** A real mob standing in for an army's soldiers near a player. */
-	private record Soldier(UUID division, UUID province, String dimension, UUID nation) {
-	}
 
 	private WarsWar() {
 	}
@@ -105,7 +102,6 @@ public final class WarsWar {
 		ServerLifecycleEvents.SERVER_STARTED.register(WarsWar::load);
 
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-			removeAllSoldiers(server);
 			save();
 			DIVISIONS.clear();
 			SIEGES.clear();
@@ -129,22 +125,12 @@ public final class WarsWar {
 
 		// soldiers left over from before a restart are not part of any army any more
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
-			if (!SOLDIERS.containsKey(entity.getUUID()) && entity.hasCustomName() && entity.getCustomName() != null
+			if (!LIVE.contains(entity.getUUID()) && entity.hasCustomName() && entity.getCustomName() != null
 					&& entity.getCustomName().getString().startsWith(SOLDIER_PREFIX)) {
 				entity.discard();
 			}
 		});
 
-		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-			Soldier s = SOLDIERS.remove(entity.getUUID());
-
-			if (s == null) {
-				return;
-			}
-
-			MinecraftServer server = entity.level().getServer();
-			soldierKilled(server, s, source.getEntity() instanceof ServerPlayer p ? p : null);
-		});
 
 		ServerPlayNetworking.registerGlobalReceiver(ArmyActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
@@ -172,6 +158,40 @@ public final class WarsWar {
 		}
 
 		return list;
+	}
+
+	/** Provinces being besieged right now (and kept up by an army). */
+	static List<ProvinceData> activeSieges() {
+		List<ProvinceData> list = new ArrayList<>();
+
+		for (Map.Entry<UUID, Siege> e : SIEGES.entrySet()) {
+			ProvinceData p = WarsWorld.province(e.getKey());
+
+			if (p != null && e.getValue().active) {
+				list.add(p);
+			}
+		}
+
+		return list;
+	}
+
+	static UUID besieger(ProvinceData p) {
+		Siege s = SIEGES.get(p.id);
+		return s == null ? null : s.attacker;
+	}
+
+	/** A defender of a besieged province was killed in the world. */
+	static void garrisonKilled(UUID province) {
+		Siege siege = SIEGES.get(province);
+
+		if (siege != null) {
+			siege.garrisonLoss += 4;
+			siege.progress = Math.min(99, siege.progress + 2);
+		}
+	}
+
+	static DivisionData division(UUID id) {
+		return id == null ? null : DIVISIONS.get(id);
 	}
 
 	static boolean underSiege(ProvinceData p) {
@@ -225,7 +245,7 @@ public final class WarsWar {
 
 		for (ProvinceData p : WarsWorld.provinces()) {
 			if (nation.equals(p.nation)) {
-				s += garrison(p) * 0.5;
+				s += garrison(p) * 0.2;
 			}
 		}
 
@@ -249,7 +269,7 @@ public final class WarsWar {
 		return na != null && na.allies.contains(b);
 	}
 
-	private static boolean hostile(UUID a, UUID b) {
+	static boolean hostile(UUID a, UUID b) {
 		return !a.equals(b) && WarsDiplomacy.atWar(a, b);
 	}
 
@@ -359,6 +379,56 @@ public final class WarsWar {
 				d.orderTime = server.overworld().getGameTime();
 				ServerNations.status(player, d.name + " stops and holds its ground.", true);
 			}
+			case ArmyActionPayload.HIRE -> {
+				if (!canRaise(n, me)) {
+					ServerNations.status(player, "Only Ministers and the leader can hire soldiers.", false);
+					return;
+				}
+
+				String problem = hire(n, d, Math.max(1, a.x()));
+
+				if (problem != null) {
+					ServerNations.status(player, problem, false);
+					return;
+				}
+
+				ServerNations.status(player, d.name + " now has " + d.soldiers() + " soldiers.", true);
+				ServerNations.saveNow(server);
+				ServerNations.broadcast(server);
+			}
+			case ArmyActionPayload.SPLIT -> {
+				if (d.state == DivisionData.State.FIGHTING || d.strength < 4) {
+					ServerNations.status(player, d.strength < 4 ? "Too few soldiers to split." : "Not in the middle of a battle!", false);
+					return;
+				}
+
+				DivisionData half = split(n, d);
+				ServerNations.status(player, d.name + " split: " + half.name + " (" + half.soldiers() + " soldiers) is ready for orders.", true);
+			}
+			case ArmyActionPayload.MERGE -> {
+				DivisionData other = null;
+
+				for (DivisionData o : DIVISIONS.values()) {
+					if (o != d && o.nation.equals(d.nation) && o.kind == d.kind && o.dimension.equals(d.dimension)
+							&& Math.hypot(o.x - d.x, o.z - d.z) < 32 && (other == null
+							|| Math.hypot(o.x - d.x, o.z - d.z) < Math.hypot(other.x - d.x, other.z - d.z))) {
+						other = o;
+					}
+				}
+
+				if (other == null) {
+					ServerNations.status(player, "No other " + d.kind.displayName.toLowerCase() + " of yours within 32 blocks to merge with.", false);
+					return;
+				}
+
+				if (d.state == DivisionData.State.FIGHTING || other.state == DivisionData.State.FIGHTING) {
+					ServerNations.status(player, "Not in the middle of a battle!", false);
+					return;
+				}
+
+				merge(server, d, other);
+				ServerNations.status(player, other.name + " joined " + d.name + ": " + d.soldiers() + " soldiers.", true);
+			}
 			case ArmyActionPayload.DISBAND -> {
 				if (!canRaise(n, me)) {
 					ServerNations.status(player, "Only Ministers and the leader can disband an army.", false);
@@ -411,7 +481,8 @@ public final class WarsWar {
 		}
 
 		DivisionData d = raiseDivision(n, p, kind);
-		ServerNations.status(player, d.name + " was raised at " + p.name + " for " + kind.cost + " emeralds. Upkeep: " + kind.upkeep() + " a day.", true);
+		ServerNations.status(player, d.name + " was raised at " + p.name + " with " + d.soldiers() + " soldiers for " + kind.cost
+				+ " emeralds. Hire more in the War tab (" + kind.hirePrice + " each, up to " + kind.maxStrength + ").", true);
 		WarsWorld.saveNow();
 		ServerNations.saveNow(server);
 		save();
@@ -457,7 +528,7 @@ public final class WarsWar {
 		d.nation = n.id;
 		d.kind = kind;
 		d.name = ordinal(number) + " " + kind.unitName(n.faction);
-		d.strength = kind.maxStrength;
+		d.strength = kind.startStrength();
 		d.morale = 75;
 		d.dimension = p.dimension;
 		d.x = p.x + RANDOM.nextInt(17) - 8;
@@ -500,10 +571,87 @@ public final class WarsWar {
 
 	private static void removeDivision(MinecraftServer server, DivisionData d) {
 		DIVISIONS.remove(d.id);
-		removeSoldiers(server, s -> d.id.equals(s.division()));
+		WarsTroops.forget(server, d.id);
 	}
 
 	// ---------------------------------------------------------------- war and peace
+
+	/**
+	 * Hires soldiers into a division: they cost emeralds from the treasury and must come from your own land
+	 * (the division must be in your land). Returns why it can't, or null.
+	 */
+	static String hire(NationData n, DivisionData d, int count) {
+		int room = d.kind.maxStrength - d.soldiers();
+
+		if (room <= 0) {
+			return d.name + " is full (" + d.kind.maxStrength + " soldiers).";
+		}
+
+		NationData land = ServerNations.nationAt(d.dimension, ((int) Math.floor(d.x)) >> 4, ((int) Math.floor(d.z)) >> 4);
+
+		if (land == null || !land.id.equals(n.id)) {
+			return "Soldiers are hired in your own land. Bring " + d.name + " home first.";
+		}
+
+		int want = Math.min(room, count);
+		int afford = (int) Math.min(want, n.treasury / d.kind.hirePrice);
+
+		if (afford <= 0) {
+			return "The treasury can't pay: " + d.kind.hirePrice + " emeralds a soldier (it has " + n.treasury + ").";
+		}
+
+		n.treasury -= (long) afford * d.kind.hirePrice;
+		n.book("Hired soldiers", -afford * d.kind.hirePrice);
+		d.strength = Math.min(d.kind.maxStrength, d.strength + afford);
+		d.morale = Math.max(d.morale, 60);
+
+		// the recruits come from the nearest village
+		ProvinceData from = null;
+		double best = Double.MAX_VALUE;
+
+		for (ProvinceData p : WarsWorld.provinces()) {
+			if (n.id.equals(p.nation) && p.dimension.equals(d.dimension)) {
+				double dist = Math.hypot(p.x - d.x, p.z - d.z);
+
+				if (dist < best) {
+					best = dist;
+					from = p;
+				}
+			}
+		}
+
+		if (from != null) {
+			from.happiness = Math.max(0, from.happiness - Math.max(1, afford / 4));
+		}
+
+		save();
+		return null;
+	}
+
+	/** Splits a division in two halves; returns the new one. */
+	static DivisionData split(NationData n, DivisionData d) {
+		DivisionData half = spawnDivision(n, d.kind, d.dimension, d.x + 4, d.z + 4, "");
+		half.strength = Math.floor(d.strength / 2);
+		d.strength -= half.strength;
+		half.morale = d.morale;
+		half.home = d.home;
+		save();
+		return half;
+	}
+
+	/** Puts the soldiers of "other" into "into" (what doesn't fit stays in other). */
+	static void merge(MinecraftServer server, DivisionData into, DivisionData other) {
+		double moved = Math.min(other.strength, into.kind.maxStrength - into.strength);
+		into.morale = (into.morale * into.strength + other.morale * moved) / Math.max(1, into.strength + moved);
+		into.strength += moved;
+		other.strength -= moved;
+
+		if (other.strength < 0.5) {
+			removeDivision(server, other);
+		}
+
+		save();
+	}
 
 	/** Removes an army without a word (the game's own rulers saving money). */
 	static void disbandQuietly(MinecraftServer server, DivisionData d) {
@@ -543,10 +691,6 @@ public final class WarsWar {
 
 	private static void step(MinecraftServer server) {
 		if (DIVISIONS.isEmpty() && SIEGES.isEmpty()) {
-			if (!SOLDIERS.isEmpty()) {
-				removeAllSoldiers(server);
-			}
-
 			if (!sentEmpty) {
 				battles = new ArrayList<>();
 				broadcast(server);
@@ -566,7 +710,7 @@ public final class WarsWar {
 		fight(server, opponents);
 		sieges(server);
 		recover();
-		soldiers(server);
+		WarsTroops.tick(server);
 
 		if (ticks % 600 == 0) {
 			save();
@@ -703,7 +847,7 @@ public final class WarsWar {
 			DivisionData att = e.getKey();
 			DivisionData def = e.getValue();
 			double moraleFactor = 0.5 + att.morale / 200.0;
-			double dmg = att.strength * att.kind.attack * moraleFactor * 0.01 * (0.75 + RANDOM.nextDouble() * 0.5);
+			double dmg = att.strength * att.kind.attack * moraleFactor * 0.012 * (0.75 + RANDOM.nextDouble() * 0.5);
 			dmg *= 1 + 0.3 * helpers(server, att);
 			dmg /= def.kind.defence;
 
@@ -720,7 +864,7 @@ public final class WarsWar {
 		for (Map.Entry<DivisionData, Double> e : damage.entrySet()) {
 			DivisionData d = e.getKey();
 			d.strength -= e.getValue();
-			d.morale -= e.getValue() * 1.1 + 0.3;
+			d.morale -= e.getValue() / d.kind.maxStrength * 120 + 0.3; // losing a share of the men breaks spirits
 		}
 
 		for (DivisionData d : new ArrayList<>(DIVISIONS.values())) {
@@ -806,7 +950,7 @@ public final class WarsWar {
 			double pw = d.strength * d.kind.siege * (0.5 + d.morale / 200.0) * (1 + 0.3 * helpers(server, d));
 			power.computeIfAbsent(p.id, k -> new HashMap<>()).merge(d.nation, pw, Double::sum);
 			// the defenders shoot back
-			d.strength -= garrison(p) * 0.0015;
+			d.strength -= garrison(p) * 0.0006;
 			d.morale -= 0.02;
 		}
 
@@ -835,7 +979,7 @@ public final class WarsWar {
 
 			s.attacker = leader;
 			s.active = true;
-			s.progress += total / (garrison(p) * 6);
+			s.progress += total / (garrison(p) * 1.5);
 
 			if (s.progress >= 100) {
 				capture(server, p, leader);
@@ -930,7 +1074,7 @@ public final class WarsWar {
 			}
 		}
 
-		removeSoldiers(server, s -> p.id.equals(s.province()));
+		WarsTroops.forget(server, p.id);
 		WarsWorld.saveNow();
 		ServerNations.saveNow(server);
 		save();
@@ -956,7 +1100,6 @@ public final class WarsWar {
 	// ---------------------------------------------------------------- once a day
 
 	static void runDay(MinecraftServer server) {
-		Map<UUID, Integer> paid = new HashMap<>();
 
 		for (DivisionData d : new ArrayList<>(DIVISIONS.values())) {
 			NationData n = ServerNations.nation(d.nation);
@@ -965,11 +1108,11 @@ public final class WarsWar {
 				continue;
 			}
 
-			int upkeep = d.kind.upkeep();
+			int upkeep = d.kind.upkeep(d.strength);
 
 			if (n.treasury >= upkeep) {
 				n.treasury -= upkeep;
-				paid.merge(n.id, upkeep, Integer::sum);
+				n.book("Army upkeep", -upkeep);
 			} else {
 				// unpaid soldiers lose heart, some go home
 				d.morale = Math.max(0, d.morale - 25);
@@ -980,97 +1123,36 @@ public final class WarsWar {
 			// resting at home: new recruits fill the ranks
 			NationData land = ServerNations.nationAt(d.dimension, ((int) Math.floor(d.x)) >> 4, ((int) Math.floor(d.z)) >> 4);
 
-			if (d.state == DivisionData.State.IDLE && land != null && land.id.equals(d.nation) && d.strength < d.kind.maxStrength) {
-				double add = Math.min(d.kind.maxStrength - d.strength, d.kind.maxStrength * 0.2);
-				int cost = (int) Math.ceil(add / 4);
+			// (the game's own nations hire by themselves; players hire in the War tab)
+			if (n.aiRuled() && d.state == DivisionData.State.IDLE && land != null && land.id.equals(d.nation) && d.strength < d.kind.maxStrength) {
+				double add = Math.min(d.kind.maxStrength - d.strength, Math.max(1, d.kind.maxStrength * 0.25));
+				int cost = (int) Math.ceil(add * d.kind.hirePrice);
 
 				if (n.treasury >= cost) {
 					n.treasury -= cost;
 					d.strength += add;
-					paid.merge(n.id, cost, Integer::sum);
+					n.book("Army recruits", -cost);
 				}
 			}
 		}
 
-		for (Map.Entry<UUID, Integer> e : paid.entrySet()) {
-			NationData n = ServerNations.nation(e.getKey());
-
-			if (n != null) {
-				n.lastBalance -= e.getValue();
-			}
-		}
 
 		save();
 	}
 
-	// ---------------------------------------------------------------- real soldiers near players
+	// ---------------------------------------------------------------- mobs of the war (troops, guards, kings, rift creatures)
 
-	private static void soldiers(MinecraftServer server) {
-		// which armies / garrisons have an enemy player close by
-		Map<UUID, ServerPlayer> divisionFoe = new HashMap<>();
-		Map<UUID, ServerPlayer> garrisonFoe = new HashMap<>();
-
-		for (ServerPlayer player : PlayerLookup.all(server)) {
-			NationData pn = ServerNations.nationOf(player.getUUID());
-
-			if (pn == null || player.isSpectator()) {
-				continue;
-			}
-
-			String dim = player.level().dimension().identifier().toString();
-
-			for (DivisionData d : DIVISIONS.values()) {
-				if ((d.state == DivisionData.State.FIGHTING || d.state == DivisionData.State.SIEGING) && d.dimension.equals(dim)
-						&& hostile(pn.id, d.nation) && Math.hypot(player.getX() - d.x, player.getZ() - d.z) < HELP_RANGE) {
-					divisionFoe.putIfAbsent(d.id, player);
-				}
-			}
-
-			for (Map.Entry<UUID, Siege> e : SIEGES.entrySet()) {
-				ProvinceData p = WarsWorld.province(e.getKey());
-
-				if (p != null && e.getValue().active && p.nation != null && p.dimension.equals(dim) && hostile(pn.id, p.nation)
-						&& Math.hypot(player.getX() - p.x, player.getZ() - p.z) < HELP_RANGE) {
-					garrisonFoe.putIfAbsent(p.id, player);
-				}
-			}
-		}
-
-		// soldiers whose fight is over (or whose foe left) go away
-		removeSoldiers(server, s -> s.division() != null ? !divisionFoe.containsKey(s.division()) : !garrisonFoe.containsKey(s.province()));
-
-		Map<UUID, Integer> alive = new HashMap<>();
-
-		for (Soldier s : SOLDIERS.values()) {
-			alive.merge(s.division() != null ? s.division() : s.province(), 1, Integer::sum);
-		}
-
-		for (Map.Entry<UUID, ServerPlayer> e : divisionFoe.entrySet()) {
-			DivisionData d = DIVISIONS.get(e.getKey());
-			NationData n = d != null ? ServerNations.nation(d.nation) : null;
-			int want = d == null ? 0 : Math.min(3, (int) Math.ceil(d.strength / 25));
-
-			if (n != null && alive.getOrDefault(d.id, 0) < want) {
-				spawnSoldier(server, n, d.dimension, d.x, d.z, d.id, null, d.kind, e.getValue());
-			}
-		}
-
-		for (Map.Entry<UUID, ServerPlayer> e : garrisonFoe.entrySet()) {
-			ProvinceData p = WarsWorld.province(e.getKey());
-			NationData n = p != null ? ServerNations.nation(p.nation) : null;
-			int want = p == null ? 0 : Math.min(3, 1 + (int) (garrison(p) / 40));
-
-			if (n != null && alive.getOrDefault(p.id, 0) < want) {
-				spawnSoldier(server, n, p.dimension, p.x, p.z, null, p.id, DivisionData.Kind.INFANTRY, e.getValue());
-			}
-		}
-	}
-
+	/** Every mob the war spawned and still knows about; others with the war's name prefix are left-overs and go away. */
+	private static final java.util.Set<UUID> LIVE = new java.util.HashSet<>();
 	private static final Map<String, EntityType<?>> TYPES = new HashMap<>();
+
+	static void untrack(UUID id) {
+		LIVE.remove(id);
+	}
 
 	/**
 	 * Finds a vanilla entity type by its constant name. Looked up by name so it works
-	 * wherever this Minecraft version keeps its entity type constants.
+	 * wherever this Minecraft version keeps its entity type constants (26.x: EntityTypes).
 	 */
 	private static EntityType<?> entityType(String constant) {
 		if (TYPES.containsKey(constant)) {
@@ -1079,7 +1161,7 @@ public final class WarsWar {
 
 		EntityType<?> found = null;
 
-		for (String cls : new String[] {"net.minecraft.world.entity.EntityType", "net.minecraft.world.entity.EntityTypes"}) {
+		for (String cls : new String[] {"net.minecraft.world.entity.EntityTypes", "net.minecraft.world.entity.EntityType"}) {
 			try {
 				Object value = Class.forName(cls).getField(constant).get(null);
 
@@ -1100,48 +1182,6 @@ public final class WarsWar {
 		return found;
 	}
 
-	private static String soldierType(Faction faction, DivisionData.Kind kind, boolean nether) {
-		boolean ranged = kind == DivisionData.Kind.ARCHERS || RANDOM.nextInt(3) == 0;
-
-		return switch (faction) {
-			case ILLAGER -> ranged ? "PILLAGER" : "VINDICATOR";
-			case PIGLIN -> nether ? (ranged ? "PIGLIN" : "PIGLIN_BRUTE") : "ZOMBIFIED_PIGLIN";
-			case UNDEAD -> ranged ? "SKELETON" : "HUSK";
-			default -> "IRON_GOLEM";
-		};
-	}
-
-	private static void spawnSoldier(MinecraftServer server, NationData n, String dimension, double cx, double cz,
-			UUID division, UUID province, DivisionData.Kind kind, ServerPlayer foe) {
-		ServerLevel level = WarsWorld.levelOf(server, dimension);
-
-		if (level == null) {
-			return;
-		}
-
-		double angle = RANDOM.nextDouble() * Math.PI * 2;
-		double r = 4 + RANDOM.nextDouble() * 8;
-		int x = (int) Math.floor(cx + Math.cos(angle) * r);
-		int z = (int) Math.floor(cz + Math.sin(angle) * r);
-
-		if (!level.getChunkSource().hasChunk(x >> 4, z >> 4)) {
-			return; // nobody is close enough for the ground to be there
-		}
-
-		boolean nether = dimension.equals("minecraft:the_nether");
-		int y = nether ? (int) Math.floor(foe.getY()) : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-		Mob mob = spawnMob(level, soldierType(n.faction, kind, nether), x, y, z);
-
-		if (mob == null) {
-			return;
-		}
-
-		mob.setCustomName(Component.literal(SOLDIER_PREFIX + n.name).withColor(n.color));
-		mob.setCustomNameVisible(true);
-		mob.setTarget(foe);
-		SOLDIERS.put(mob.getUUID(), new Soldier(division, province, dimension, n.id));
-	}
-
 	/** Spawns a vanilla mob by its entity type constant name (e.g. "PILLAGER"). Null if it couldn't. */
 	static Mob spawnMob(ServerLevel level, String typeConstant, int x, int y, int z) {
 		EntityType<?> type = entityType(typeConstant);
@@ -1160,6 +1200,7 @@ public final class WarsWar {
 		}
 
 		if (spawned instanceof Mob mob) {
+			LIVE.add(mob.getUUID());
 			return mob;
 		}
 
@@ -1173,60 +1214,6 @@ public final class WarsWar {
 	/** Mobs with this name prefix belong to the war; left-over ones are removed when their chunk loads again. */
 	static String soldierPrefix() {
 		return SOLDIER_PREFIX;
-	}
-
-	private static void soldierKilled(MinecraftServer server, Soldier s, ServerPlayer killer) {
-		if (server == null) {
-			return;
-		}
-
-		if (s.division() != null) {
-			DivisionData d = DIVISIONS.get(s.division());
-
-			if (d != null) {
-				d.strength -= 5;
-				d.morale -= 3;
-			}
-		} else if (s.province() != null) {
-			Siege siege = SIEGES.get(s.province());
-
-			if (siege != null) {
-				siege.garrisonLoss += 6;
-				siege.progress = Math.min(99, siege.progress + 2);
-			}
-		}
-
-		if (killer != null) {
-			NationData kn = ServerNations.nationOf(killer.getUUID());
-
-			if (kn != null) {
-				WarsPolitics.addMerit(server, kn, killer.getUUID(), 3);
-			}
-
-			WarsDuties.onEnemyKilled(server, killer);
-		}
-	}
-
-	private static void removeSoldiers(MinecraftServer server, java.util.function.Predicate<Soldier> which) {
-		for (Iterator<Map.Entry<UUID, Soldier>> it = SOLDIERS.entrySet().iterator(); it.hasNext(); ) {
-			Map.Entry<UUID, Soldier> e = it.next();
-
-			if (!which.test(e.getValue())) {
-				continue;
-			}
-
-			it.remove();
-			ServerLevel level = server != null ? WarsWorld.levelOf(server, e.getValue().dimension()) : null;
-			Entity entity = level != null ? level.getEntity(e.getKey()) : null;
-
-			if (entity != null) {
-				entity.discard();
-			}
-		}
-	}
-
-	private static void removeAllSoldiers(MinecraftServer server) {
-		removeSoldiers(server, s -> true);
 	}
 
 	// ---------------------------------------------------------------- sync and saving
@@ -1255,7 +1242,6 @@ public final class WarsWar {
 		DIVISIONS.clear();
 		SIEGES.clear();
 		RAISED.clear();
-		SOLDIERS.clear();
 		file = server.getWorldPath(LevelResource.ROOT).resolve("mapnationswars_war.json");
 
 		if (!Files.exists(file)) {
@@ -1272,6 +1258,8 @@ public final class WarsWar {
 				d.name = o.get("name").getAsString();
 				d.kind = DivisionData.Kind.byName(o.get("kind").getAsString());
 				d.strength = o.get("strength").getAsDouble();
+				d.kind = DivisionData.Kind.byName(o.get("kind").getAsString());
+				d.strength = Math.min(d.strength, d.kind.maxStrength); // divisions became smaller in 2.0
 				d.morale = o.get("morale").getAsDouble();
 				d.dimension = o.get("dimension").getAsString();
 				d.x = o.get("x").getAsDouble();

@@ -147,6 +147,7 @@ public final class WarsPolitics {
 			if (salary > 0 && n.treasury >= salary) {
 				n.treasury -= salary;
 				n.owed.merge(m.id(), salary, Integer::sum);
+				n.book("Salaries", -salary);
 			}
 		}
 	}

@@ -382,6 +382,8 @@ public class NationsScreen extends PagedScreen {
 				list.add(new ButtonSpec("Edit nation", 100, b -> this.startEdit(n)));
 			}
 
+			list.add(new ButtonSpec("\u2666 Treasury", 80, b -> this.minecraft.gui.setScreen(CareerScreen.treasuryPage())));
+
 			list.add(new ButtonSpec("Leave nation", 100, b -> this.send(NationActionPayload.simple(NationActionPayload.LEAVE, ""))));
 
 			// elections: Officers and higher can run

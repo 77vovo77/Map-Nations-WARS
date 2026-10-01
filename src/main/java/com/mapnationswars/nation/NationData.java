@@ -38,6 +38,26 @@ public final class NationData {
 	/** Treasury change on the last day (taxes minus upkeep). */
 	public int lastBalance = 0;
 
+	// ---------------------------------------------------------------- 2.0: taxes and the treasury's ledger
+	public static final String[] TAX_NAMES = {"Low", "Normal", "High", "Harsh"};
+	/** Share of the villages' income that goes to the treasury. */
+	public static final double[] TAX_RATES = {0.3, 0.5, 0.65, 0.8};
+	/** How taxes change the villages' mood (happiness target). */
+	public static final int[] TAX_MOOD = {8, 0, -7, -16};
+	public int taxLevel = 1;
+	/** Yesterday's money: what came in and went out, by reason. */
+	public final java.util.LinkedHashMap<String, Integer> ledger = new java.util.LinkedHashMap<>();
+
+	public void book(String reason, int amount) {
+		if (amount != 0) {
+			this.ledger.merge(reason, amount, Integer::sum);
+		}
+	}
+
+	public double taxRate() {
+		return TAX_RATES[Math.max(0, Math.min(3, this.taxLevel))];
+	}
+
 	// ---------------------------------------------------------------- stage 3: ranks, merit, salaries, elections
 	/** player -> rank (Ranks.CITIZEN ... Ranks.MINISTER) */
 	public final java.util.Map<UUID, Integer> ranks = new java.util.HashMap<>();
@@ -133,6 +153,13 @@ public final class NationData {
 		writeIds(buf, this.candidates);
 		buf.writeVarLong(this.nextElection);
 		buf.writeUtf(this.lastElection);
+		buf.writeVarInt(this.taxLevel);
+		buf.writeVarInt(this.ledger.size());
+
+		for (java.util.Map.Entry<String, Integer> e : this.ledger.entrySet()) {
+			buf.writeUtf(e.getKey());
+			buf.writeInt(e.getValue());
+		}
 	}
 
 	private static void writeIntMap(RegistryFriendlyByteBuf buf, java.util.Map<UUID, Integer> map) {
@@ -177,6 +204,13 @@ public final class NationData {
 		readIds(buf, n.candidates);
 		n.nextElection = buf.readVarLong();
 		n.lastElection = buf.readUtf();
+		n.taxLevel = buf.readVarInt();
+		int entries = buf.readVarInt();
+
+		for (int i = 0; i < entries; i++) {
+			n.ledger.put(buf.readUtf(), buf.readInt());
+		}
+
 		return n;
 	}
 
