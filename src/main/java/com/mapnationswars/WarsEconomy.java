@@ -217,6 +217,7 @@ public final class WarsEconomy {
 
 		WarsPolitics.runDay(server, server.overworld().getGameTime() / DAY_TICKS);
 		WarsDiplomacy.runDay(server);
+		WarsAI.runDay(server);
 		WarsWar.runDay(server);
 		WarsWar.broadcast(server);
 		WarsWorld.saveNow();

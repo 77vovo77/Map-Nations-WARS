@@ -14,6 +14,7 @@ import com.mapnationswars.network.DiplomacySyncPayload;
 public final class ClientDiplomacy {
 	private static final Map<String, DiplomacySyncPayload.Entry> RELATIONS = new HashMap<>();
 	private static List<LetterData> letters = List.of();
+	private static List<String> news = List.of();
 	private static int version = 0;
 
 	private ClientDiplomacy() {
@@ -27,12 +28,14 @@ public final class ClientDiplomacy {
 		}
 
 		letters = payload.letters();
+		news = payload.news();
 		version++;
 	}
 
 	static void clear() {
 		RELATIONS.clear();
 		letters = List.of();
+		news = List.of();
 		version++;
 	}
 
@@ -94,5 +97,10 @@ public final class ClientDiplomacy {
 		}
 
 		return list;
+	}
+
+	/** The world's chronicle, newest last. */
+	public static List<String> news() {
+		return news;
 	}
 }

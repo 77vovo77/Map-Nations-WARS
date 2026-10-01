@@ -12,8 +12,8 @@ import com.mapnationswars.MapNationsMod;
 import com.mapnationswars.nation.LetterData;
 import com.mapnationswars.nation.NationData;
 
-/** Server -> client: relations between nations (wars, trade, opinion changes) and your nation's letters. */
-public record DiplomacySyncPayload(List<Entry> relations, List<LetterData> letters) implements CustomPacketPayload {
+/** Server -> client: relations between nations (wars, trade, opinion changes), your nation's letters and the world's news. */
+public record DiplomacySyncPayload(List<Entry> relations, List<LetterData> letters, List<String> news) implements CustomPacketPayload {
 	public record Entry(UUID a, UUID b, int modifier, boolean war, boolean trade) {
 	}
 
@@ -39,6 +39,12 @@ public record DiplomacySyncPayload(List<Entry> relations, List<LetterData> lette
 		for (LetterData l : this.letters) {
 			l.write(buf);
 		}
+
+		buf.writeVarInt(this.news.size());
+
+		for (String line : this.news) {
+			buf.writeUtf(line);
+		}
 	}
 
 	private static DiplomacySyncPayload read(RegistryFriendlyByteBuf buf) {
@@ -61,7 +67,14 @@ public record DiplomacySyncPayload(List<Entry> relations, List<LetterData> lette
 			letters.add(LetterData.read(buf));
 		}
 
-		return new DiplomacySyncPayload(relations, letters);
+		int k = buf.readVarInt();
+		List<String> news = new ArrayList<>(k);
+
+		for (int i = 0; i < k; i++) {
+			news.add(buf.readUtf());
+		}
+
+		return new DiplomacySyncPayload(relations, letters, news);
 	}
 
 	@Override

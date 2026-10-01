@@ -79,8 +79,31 @@ In RP you paint the map yourself. In **WARS** the world is already full of natio
 - The **War** tab lists your armies, your wars and sieges, all battles and all wars in the world. Pick an army there to see it on the map, hold it, send it home or disband it.
 - Wars, battles, captured provinces and fallen nations are announced in chat.
 
+## AI nations (stage 6)
+Nations ruled by the game now act on their own.
+
+**Their rulers decide once a day:**
+- **Peace.** When a war goes badly (they lost more provinces, or their army is much weaker) or drags on for 12 days, they ask for peace.
+- **Answering peace.** A nation that is winning refuses peace. One that is losing accepts.
+- **Each faction has its own temper:**
+  - **Villager kingdoms** trade, make friends, send gifts to nations they like and propose alliances. They only go to war against nations they truly hate, or to take villages back from the dead.
+  - **Illager dominions** raid any living neighbour weaker than them, especially one already busy with another war, and demand tribute: "pay, or we come for you".
+  - **Piglin clans** demand gold and fight for pride.
+  - **Undead hordes** never rest. When they are not at war, they attack the nearest living nation. Every two days the dead rise again and form new hordes for free, so take their villages back.
+- **No wars at the start.** Rulers wait 3 days after a world starts, at least 5 days between two declarations, and never fight more than 2 wars at once.
+- **They write to players too.** AI nations send real letters to player-led nations: trade offers, alliance proposals, tribute demands, peace offers and declarations of war. Answer them in the Letters tab. Refusing a strong neighbour's demand can lead to war.
+
+**Their generals act every 10 seconds:**
+- They raise armies when at war, at the province closest to the enemy, and keep a small army in peacetime when rich.
+- They first relieve besieged provinces, then intercept enemy armies that come near their land, then march together on the closest, weakest enemy province.
+- Tired armies go home to rest. In peacetime, armies outside their land come home. When money runs out, they disband soldiers.
+- If an Officer or Minister of an AI-ruled nation gives an army an order, the generals leave that army alone for 10 minutes.
+
+**Conquest changes villages.** Villages taken by the undead are left empty. Villages taken back from the dead get their refugees and a new mayor.
+
+**The Chronicle.** The War tab keeps a chronicle of everything that happened in the world, day by day. It is also announced in chat.
+
 ## Coming next
-6. AI nations acting on their own.
 7. Revolts, coups and founding your own nation.
 8. Portals: ruined portals waking up, invasions between the Nether and the Overworld.
 

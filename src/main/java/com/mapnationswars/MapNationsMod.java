@@ -64,6 +64,7 @@ public class MapNationsMod implements ModInitializer {
 		WarsPolitics.init();
 		WarsDiplomacy.init();
 		WarsWar.init();
+		WarsAI.init();
 		ServerMarkers.init();
 		ServerPopulation.init();
 		TerrainPreview.init();

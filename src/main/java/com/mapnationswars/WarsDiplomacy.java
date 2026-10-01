@@ -52,6 +52,10 @@ public final class WarsDiplomacy {
 	private static final Map<String, UUID[]> PAIRS = new HashMap<>();
 	private static final List<LetterData> LETTERS = new ArrayList<>();
 	private static final Map<UUID, Long> LAST_SENT = new HashMap<>();
+	/** The world's chronicle: wars, battles, conquests, revolts (newest last). */
+	private static final List<String> NEWS = new ArrayList<>();
+	private static final int MAX_NEWS = 60;
+	private static long today = 0;
 	private static Path file;
 
 	private WarsDiplomacy() {
@@ -65,6 +69,7 @@ public final class WarsDiplomacy {
 			RELATIONS.clear();
 			PAIRS.clear();
 			LETTERS.clear();
+			NEWS.clear();
 			file = null;
 		});
 
@@ -111,7 +116,7 @@ public final class WarsDiplomacy {
 
 	/** Rough strength of a nation: its villagers, provinces and players. */
 	static int strength(NationData n) {
-		int s = n.members.size() * 10;
+		int s = n.members.size() * 10 + WarsWar.armyStrength(n.id) / 3;
 
 		for (ProvinceData p : WarsWorld.provinces()) {
 			if (n.id.equals(p.nation)) {
@@ -391,11 +396,79 @@ public final class WarsDiplomacy {
 		change(a, b, amount);
 	}
 
-	/** A message in every player's chat. */
+	/** A message in every player's chat, kept in the world's chronicle (War tab). */
 	static void news(MinecraftServer server, String text) {
+		today = server.overworld().getGameTime() / WarsEconomy.DAY_TICKS;
+		NEWS.add("Day " + today + ": " + text);
+
+		while (NEWS.size() > MAX_NEWS) {
+			NEWS.remove(0);
+		}
+
 		for (ServerPlayer p : PlayerLookup.all(server)) {
 			p.sendSystemMessage(net.minecraft.network.chat.Component.literal(text).withColor(0xFFD27A));
 		}
+
+		save();
+		broadcast(server);
+	}
+
+	static boolean trading(UUID a, UUID b) {
+		Relations.Relation r = RELATIONS.get(Relations.key(a, b));
+		return r != null && r.trade;
+	}
+
+	/**
+	 * A nation ruled by the game writes a letter (stage 6). Nations ruled by the game answer at once,
+	 * players find it in their Letters tab. A declaration of war needs no answer.
+	 */
+	static void aiLetter(MinecraftServer server, NationData from, NationData to, LetterData.Type type, int amount, String text) {
+		LetterData l = new LetterData(UUID.randomUUID());
+		l.from = from.id;
+		l.to = to.id;
+		l.sender = from.leaderName() + ", " + from.ideology.leaderTitle;
+		l.type = type;
+		l.amount = Math.max(0, amount);
+		l.text = text;
+		l.day = server.overworld().getGameTime() / WarsEconomy.DAY_TICKS;
+
+		if (type == LetterData.Type.GIFT) {
+			if (from.treasury < l.amount) {
+				return;
+			}
+
+			from.treasury -= l.amount;
+		}
+
+		LETTERS.add(l);
+
+		if (type == LetterData.Type.WAR) {
+			l.status = LetterData.Status.DONE;
+			apply(server, l, true);
+			l.reply = warReply(to);
+		} else if (to.aiRuled()) {
+			aiAnswer(server, l, from, to);
+		} else {
+			for (NationData.Member m : to.members) {
+				if (canWrite(to, m.id())) {
+					ServerNations.notifyPlayer(server, m.id(), "\u2709 A letter from " + from.name + ": " + type.displayName + ". Open the Letters tab.");
+				}
+			}
+		}
+
+		trim();
+		save();
+	}
+
+	/** Is a letter of this type from a to b still waiting for an answer? */
+	static boolean pendingLetter(UUID from, UUID to, LetterData.Type type) {
+		for (LetterData l : LETTERS) {
+			if (l.status == LetterData.Status.PENDING && l.type == type && l.from.equals(from) && l.to.equals(to)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** Nations ruled by the game answer straight away. */
@@ -407,7 +480,7 @@ public final class WarsDiplomacy {
 			case MESSAGE, GIFT -> true;
 			case TRADE -> o >= -10;
 			case ALLIANCE -> o >= 40;
-			case PEACE -> o > -40 || stronger || random.nextInt(3) == 0;
+			case PEACE -> WarsAI.acceptsPeace(server, to, from, o) || stronger;
 			case TRIBUTE -> strength(from) > strength(to) * 2 && o > -70;
 			case WAR -> true;
 		};
@@ -525,13 +598,14 @@ public final class WarsDiplomacy {
 			}
 		}
 
-		ServerPlayNetworking.send(player, new DiplomacySyncPayload(relations, letters));
+		ServerPlayNetworking.send(player, new DiplomacySyncPayload(relations, letters, new ArrayList<>(NEWS)));
 	}
 
 	private static void load(MinecraftServer server) {
 		RELATIONS.clear();
 		PAIRS.clear();
 		LETTERS.clear();
+		NEWS.clear();
 		file = server.getWorldPath(LevelResource.ROOT).resolve("mapnationswars_diplomacy.json");
 
 		if (!Files.exists(file)) {
@@ -564,6 +638,12 @@ public final class WarsDiplomacy {
 				l.status = LetterData.Status.valueOf(o.get("status").getAsString());
 				l.reply = o.get("reply").getAsString();
 				LETTERS.add(l);
+			}
+
+			if (root.has("news")) {
+				for (JsonElement el : root.getAsJsonArray("news")) {
+					NEWS.add(el.getAsString());
+				}
 			}
 		} catch (Exception e) {
 			MapNationsMod.LOGGER.error("Could not read {}", file, e);
@@ -614,6 +694,13 @@ public final class WarsDiplomacy {
 		JsonObject root = new JsonObject();
 		root.add("relations", relations);
 		root.add("letters", letters);
+		JsonArray news = new JsonArray();
+
+		for (String line : NEWS) {
+			news.add(line);
+		}
+
+		root.add("news", news);
 
 		try {
 			Path tmp = file.resolveSibling("mapnationswars_diplomacy.json.tmp");

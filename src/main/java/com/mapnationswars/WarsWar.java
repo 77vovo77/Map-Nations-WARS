@@ -467,7 +467,13 @@ public final class WarsWar {
 
 	// ---------------------------------------------------------------- war and peace
 
+	/** Removes an army without a word (the game's own rulers saving money). */
+	static void disbandQuietly(MinecraftServer server, DivisionData d) {
+		removeDivision(server, d);
+	}
+
 	static void onWarStarted(MinecraftServer server, NationData from, NationData to) {
+		WarsAI.onWarStarted(server, from, to);
 		WarsDiplomacy.news(server, "⚔ " + from.name + " declared war on " + to.name + "!");
 	}
 
@@ -832,6 +838,23 @@ public final class WarsWar {
 
 		String oldName = oldNation != null ? oldNation.name : "nobody";
 		p.happiness = Math.max(5, p.happiness - 30);
+		WarsAI.onCapture(newNation, p.nation);
+
+		if (p.type == ProvinceData.Type.VILLAGE) {
+			if (newNation.faction == Faction.UNDEAD && !p.abandoned) {
+				// the dead leave nobody alive
+				p.abandoned = true;
+				p.population = 0;
+				p.mayorName = "";
+			} else if (newNation.faction != Faction.UNDEAD && p.abandoned) {
+				// taken back from the dead: refugees come home
+				p.abandoned = false;
+				p.population = Math.max(2, p.population);
+				p.mayorName = Names.person(RANDOM);
+				p.happiness = 40;
+			}
+		}
+
 		p.funds = p.funds / 2; // plundered
 		newNation.treasury += p.funds;
 		boolean fell = WarsWorld.transferProvince(p, winner);

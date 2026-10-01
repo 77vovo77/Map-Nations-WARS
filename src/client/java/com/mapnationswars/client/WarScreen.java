@@ -270,6 +270,21 @@ public class WarScreen extends PagedScreen {
 		}
 
 		y += 6;
+		this.drawHeading(graphics, "Chronicle", x, y, 0xFFFFD060);
+		y += 14;
+		List<String> news = ClientDiplomacy.news();
+
+		if (news.isEmpty()) {
+			graphics.text(this.font, "Nothing has happened yet.", x, y, 0xFF888888);
+			y += 12;
+		}
+
+		for (int i = news.size() - 1; i >= Math.max(0, news.size() - 14); i--) {
+			y += this.drawWrapped(graphics, news.get(i), x, y, w, i == news.size() - 1 ? 0xFFFFE0A0 : 0xFFC8C0B0);
+			y += 2;
+		}
+
+		y += 6;
 		this.drawHeading(graphics, "Wars in the world", x, y, 0xFFFF8A65);
 		y += 14;
 		List<DiplomacySyncPayload.Entry> wars = ClientDiplomacy.wars();
