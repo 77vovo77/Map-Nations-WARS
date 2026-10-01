@@ -25,6 +25,10 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew build 2>&1 | tee build.log
+      - name: probe
+        if: always()
+        shell: bash
+        run: bash probe.sh
       - name: show compile errors
         if: failure()
         shell: bash
