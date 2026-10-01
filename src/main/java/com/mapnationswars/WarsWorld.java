@@ -167,15 +167,23 @@ public final class WarsWorld {
 					return;
 				}
 
-				// you have to stand in the village to give emeralds; orders can be given from the map
-				if (payload.action() == com.mapnationswars.network.VillageActionPayload.DONATE) {
-					if (!player.level().dimension().identifier().toString().equals(p.dimension)
-							|| Math.hypot(player.getX() - p.x, player.getZ() - p.z) > 96) {
-						ServerNations.status(player, "Go to " + p.name + " to give its villagers emeralds.", false);
-						return;
-					}
+				int action = payload.action();
+				boolean inPerson = action != com.mapnationswars.network.VillageActionPayload.ORDER;
 
+				// emeralds change hands in person; orders can be given from the map
+				if (inPerson && (!player.level().dimension().identifier().toString().equals(p.dimension)
+						|| Math.hypot(player.getX() - p.x, player.getZ() - p.z) > 96)) {
+					ServerNations.status(player, "Go to " + p.name + " and talk to its mayor.", false);
+					return;
+				}
+
+				if (action == com.mapnationswars.network.VillageActionPayload.DONATE) {
 					WarsEconomy.donate(server, player, p, payload.amount());
+				} else if (action == com.mapnationswars.network.VillageActionPayload.COLLECT_SALARY) {
+					WarsPolitics.collectSalary(server, player, p);
+				} else if (action == com.mapnationswars.network.VillageActionPayload.DEPOSIT
+						|| action == com.mapnationswars.network.VillageActionPayload.WITHDRAW) {
+					WarsPolitics.treasury(server, player, p, payload.amount(), action == com.mapnationswars.network.VillageActionPayload.DEPOSIT);
 				} else if (payload.action() == com.mapnationswars.network.VillageActionPayload.ORDER) {
 					WarsEconomy.Build b = WarsEconomy.Build.byName(payload.argument());
 

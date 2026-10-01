@@ -176,7 +176,7 @@ public final class WarsEconomy {
 			}
 
 			// AI nations decide what their villages build
-			if (n != null && n.ai && p.building.isEmpty() && !p.abandoned && p.type == ProvinceData.Type.VILLAGE) {
+			if (n != null && n.aiRuled() && p.building.isEmpty() && !p.abandoned && p.type == ProvinceData.Type.VILLAGE) {
 				Build next = null;
 
 				if (made <= eaten) {
@@ -215,6 +215,7 @@ public final class WarsEconomy {
 			}
 		}
 
+		WarsPolitics.runDay(server, server.overworld().getGameTime() / DAY_TICKS);
 		WarsWorld.saveNow();
 		ServerNations.saveNow(server);
 		ServerNations.broadcast(server);
@@ -247,10 +248,11 @@ public final class WarsEconomy {
 
 	// ---------------------------------------------------------------- player actions
 
-	/** Who may give orders to a village: its nation's leader, or a player in creative mode (for testing). */
+	/** Who may give orders to a village: its nation's leader and Ministers (or a player in creative mode, for testing). */
 	static boolean canOrder(ServerPlayer player, ProvinceData p) {
 		NationData n = ServerNations.nation(p.nation);
-		return player.isCreative() || (n != null && !n.ai && n.leader.equals(player.getUUID()));
+		return player.isCreative() || (n != null && (n.leader.equals(player.getUUID())
+				|| (n.isMember(player.getUUID()) && n.rankOf(player.getUUID()) >= com.mapnationswars.nation.Ranks.MINISTER)));
 	}
 
 	static void order(MinecraftServer server, ServerPlayer player, ProvinceData p, Build b) {
@@ -284,6 +286,11 @@ public final class WarsEconomy {
 
 		p.funds += taken;
 		p.happiness = Math.min(100, p.happiness + Math.min(10, (taken + 1) / 2));
+		NationData owner = ServerNations.nation(p.nation);
+
+		if (owner != null && owner.isMember(player.getUUID())) {
+			WarsPolitics.addMerit(server, owner, player.getUUID(), taken); // helping your own villages is service too
+		}
 		ServerNations.status(player, "You gave " + taken + " emerald" + (taken == 1 ? "" : "s") + " to " + p.name + ". The villagers are grateful.", true);
 		WarsWorld.saveNow();
 		WarsWorld.broadcast(server);

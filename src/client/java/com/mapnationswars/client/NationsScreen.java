@@ -215,6 +215,8 @@ public class NationsScreen extends PagedScreen {
 		List<String> stats = this.wrap((n.ai ? n.faction.displayName + " (AI)   Provinces: " + provinces + money + "   " : "")
 				+ "Members: " + n.members.size() + "   Territory: " + ClientNations.chunkCount(n.id)
 				+ " chunks   Villagers: " + n.population + (alliance != null ? "   Alliance: " + alliance.name : ""), this.innerW());
+		stats = new ArrayList<>(stats);
+		stats.addAll(this.politicsLines(n));
 		y += stats.size() * 11 + 3;
 
 		int allyY = y;
@@ -264,6 +266,47 @@ public class NationsScreen extends PagedScreen {
 	}
 
 	/** The buttons at the bottom of a nation's page. */
+	/** Your rank, merit and salary in your nation, and the next election (Map Nations WARS). */
+	private List<String> politicsLines(NationData n) {
+		List<String> lines = new ArrayList<>();
+		UUID me = this.myId();
+
+		if (n.isMember(me)) {
+			int rank = n.rankOf(me);
+			String rankName = n.leader.equals(me) ? n.ideology.leaderTitle : com.mapnationswars.nation.Ranks.name(rank);
+			int merit = n.merit.getOrDefault(me, 0);
+			String next = rank + 1 < com.mapnationswars.nation.Ranks.NAMES.length && n.aiRuled()
+					? " (" + com.mapnationswars.nation.Ranks.name(rank + 1) + " at " + com.mapnationswars.nation.Ranks.MERIT[rank + 1] + ")" : "";
+			int salary = n.leader.equals(me) ? com.mapnationswars.nation.Ranks.LEADER_SALARY : com.mapnationswars.nation.Ranks.SALARY[Math.min(3, rank)];
+			int owed = n.owed.getOrDefault(me, 0);
+			lines.addAll(this.wrap("You: " + rankName + "   Merit " + merit + next + "   Salary " + salary + "/day"
+					+ (owed > 0 ? "   Waiting: " + owed + " emeralds (collect at any mayor)" : ""), this.innerW()));
+		}
+
+		if (n.ai && com.mapnationswars.nation.Ranks.hasElections(n.ideology)) {
+			long day = this.minecraft != null && this.minecraft.level != null ? this.minecraft.level.getGameTime() / 24000 : 0;
+			long days = Math.max(0, n.nextElection - day);
+			StringBuilder names = new StringBuilder();
+
+			for (UUID c : n.candidates) {
+				NationData.Member m = n.member(c);
+
+				if (m != null) {
+					names.append(names.length() == 0 ? "" : ", ").append(m.name());
+				}
+			}
+
+			lines.addAll(this.wrap("Elections: next in " + (n.nextElection == 0 ? "?" : days + (days == 1 ? " day" : " days"))
+					+ (names.length() > 0 ? "   Candidates: " + names : "   No candidates yet"), this.innerW()));
+
+			if (!n.lastElection.isEmpty()) {
+				lines.addAll(this.wrap("Last election: " + n.lastElection, this.innerW()));
+			}
+		}
+
+		return lines;
+	}
+
 	private List<ButtonSpec> bottomButtons(NationData n) {
 		List<ButtonSpec> list = new ArrayList<>();
 		UUID me = this.myId();
@@ -277,6 +320,17 @@ public class NationsScreen extends PagedScreen {
 			}
 
 			list.add(new ButtonSpec("Leave nation", 100, b -> this.send(NationActionPayload.simple(NationActionPayload.LEAVE, ""))));
+
+			// elections: Officers and higher can run
+			if (n.ai && com.mapnationswars.nation.Ranks.hasElections(n.ideology)
+					&& (n.leader.equals(me) || n.rankOf(me) >= com.mapnationswars.nation.Ranks.OFFICER)) {
+				if (n.candidates.contains(me)) {
+					list.add(new ButtonSpec("Withdraw candidacy", 120, b -> this.send(NationActionPayload.simple(NationActionPayload.WITHDRAW_CANDIDACY, ""))));
+				} else {
+					list.add(new ButtonSpec("Run for " + n.ideology.leaderTitle, Math.max(110, this.font.width("Run for " + n.ideology.leaderTitle) + 16),
+							b -> this.send(NationActionPayload.simple(NationActionPayload.RUN_FOR_OFFICE, ""))));
+				}
+			}
 		} else if (mine == null) {
 			if (n.hasRequest(me)) {
 				list.add(new ButtonSpec("Cancel request", 120,
@@ -340,10 +394,15 @@ public class NationsScreen extends PagedScreen {
 				int by = lay.narrowRows() ? rowY + 13 : rowY;
 				int bx = lay.narrowRows() ? this.panelX + 16 : right - 206;
 				String target = m.id().toString();
-				boolean officer = n.isOfficer(m.id());
-				this.addScrolled(Button.builder(Component.literal(officer ? "Officer -" : "Officer +"),
-								b -> this.send(NationActionPayload.simple(officer ? NationActionPayload.REMOVE_OFFICER : NationActionPayload.MAKE_OFFICER, target)))
-						.pos(bx, by).size(58, 18).build());
+				int rank = n.rankOf(m.id());
+				Button up = this.addScrolled(Button.builder(Component.literal("\u25B2"),
+								b -> this.send(new NationActionPayload(NationActionPayload.SET_RANK, target, "", rank + 1, "", -1)))
+						.pos(bx, by).size(28, 18).build());
+				Button down = this.addScrolled(Button.builder(Component.literal("\u25BC"),
+								b -> this.send(new NationActionPayload(NationActionPayload.SET_RANK, target, "", rank - 1, "", -1)))
+						.pos(bx + 30, by).size(28, 18).build());
+				up.active = rank < com.mapnationswars.nation.Ranks.MINISTER;
+				down.active = rank > com.mapnationswars.nation.Ranks.CITIZEN;
 				this.addScrolled(Button.builder(Component.literal("Make leader"),
 								b -> this.send(NationActionPayload.simple(NationActionPayload.PROMOTE, target)))
 						.pos(bx + 62, by).size(94, 18).build());
@@ -688,9 +747,10 @@ public class NationsScreen extends PagedScreen {
 			} else if (n.isOfficer(m.id())) {
 				label = Component.literal("\u2726 ").withColor(0xC0C8FF)
 						.append(Component.literal(name).withColor(n.color))
-						.append(Component.literal("  (Officer)").withColor(0xC0C8FF));
+						.append(Component.literal("  (" + com.mapnationswars.nation.Ranks.name(n.rankOf(m.id())) + ")").withColor(0xC0C8FF));
 			} else {
-				label = Component.literal(name).withColor(n.color);
+				label = Component.literal(name).withColor(n.color)
+						.append(Component.literal("  (" + com.mapnationswars.nation.Ranks.name(n.rankOf(m.id())) + ")").withColor(0x999999));
 			}
 
 			graphics.text(this.font, label, x + 16, textY, 0xFFFFFFFF, true);

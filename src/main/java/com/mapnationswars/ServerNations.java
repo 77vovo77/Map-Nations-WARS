@@ -247,6 +247,28 @@ public final class ServerNations {
 		}
 	}
 
+	// ---------------------------------------------------------------- ranks (Map Nations WARS)
+
+	/** Forgets everything about a player who left a nation. */
+	static void removeMemberData(NationData n, UUID who) {
+		n.ranks.remove(who);
+		n.merit.remove(who);
+		n.owed.remove(who);
+		n.candidates.remove(who);
+		n.officers.remove(who);
+	}
+
+	/** The officer list (for name tags) follows the ranks: Officers and Ministers. */
+	static void syncOfficers(NationData n) {
+		n.officers.clear();
+
+		for (NationData.Member m : n.members) {
+			if (!m.id().equals(n.leader) && n.rankOf(m.id()) >= com.mapnationswars.nation.Ranks.OFFICER) {
+				n.officers.add(m.id());
+			}
+		}
+	}
+
 	// ---------------------------------------------------------------- generated world (AI nations and their land)
 
 	/** Adds a nation made by the world generator. */
@@ -777,8 +799,25 @@ public final class ServerNations {
 				}
 
 				if (target.ai) {
-					status(player, target.name + " doesn't take in new people yet - joining nations comes in a later update.", false);
-					return;
+					if (mine != null) {
+						status(player, "You have to leave " + mine.name + " first.", false);
+						return;
+					}
+
+					if (target.faction != com.mapnationswars.nation.Faction.VILLAGER) {
+						status(player, "The " + target.faction.displayName.toLowerCase() + " of " + target.name + " don't take in humans.", false);
+						return;
+					}
+
+					// AI nations take in newcomers as citizens
+					removeRequestsEverywhere(me);
+					target.members.add(new NationData.Member(me, myName));
+					target.ranks.put(me, com.mapnationswars.nation.Ranks.CITIZEN);
+					target.merit.putIfAbsent(me, 0);
+					status(player, target.ideology.leaderTitle + " " + target.leaderName() + " welcomes you to " + target.name
+							+ "! Serve the nation to rise through the ranks.", true);
+					changed = true;
+					break;
 				}
 
 				if (mine != null) {
@@ -853,6 +892,7 @@ public final class ServerNations {
 
 				if (mine.members.removeIf(m -> m.id().equals(who))) {
 					mine.officers.remove(who);
+					removeMemberData(mine, who);
 					status(player, "Member removed.", true);
 					notifyPlayer(server, who, "You were removed from " + mine.name + ".");
 					changed = true;
@@ -880,10 +920,20 @@ public final class ServerNations {
 					return;
 				}
 
+				boolean wasLeader = mine.leader.equals(me);
 				mine.members.removeIf(m -> m.id().equals(me));
 				mine.officers.remove(me);
+				removeMemberData(mine, me);
 
-				if (mine.members.isEmpty()) {
+				if (mine.ai) {
+					if (wasLeader) {
+						// the game takes over again
+						mine.leader = UUID.randomUUID();
+						mine.lastElection = myName + " stepped down; " + mine.rulerName + " rules again.";
+					}
+
+					status(player, "You left " + mine.name + ".", true);
+				} else if (mine.members.isEmpty()) {
 					disband(mine);
 					status(player, mine.name + " has been dissolved.", true);
 				} else {
@@ -901,6 +951,49 @@ public final class ServerNations {
 				changed = true;
 			}
 
+			case NationActionPayload.RUN_FOR_OFFICE -> {
+				if (mine == null || !com.mapnationswars.nation.Ranks.hasElections(mine.ideology)) {
+					status(player, "Your nation doesn't hold elections.", false);
+					return;
+				}
+
+				if (mine.rankOf(me) < com.mapnationswars.nation.Ranks.OFFICER && !mine.leader.equals(me)) {
+					status(player, "You need to be at least an Officer to run for " + mine.ideology.leaderTitle + ".", false);
+					return;
+				}
+
+				if (!mine.candidates.contains(me)) {
+					mine.candidates.add(me);
+				}
+
+				status(player, "You are running for " + mine.ideology.leaderTitle + " of " + mine.name + ". The villages vote at the next election.", true);
+				changed = true;
+			}
+
+			case NationActionPayload.WITHDRAW_CANDIDACY -> {
+				if (mine != null && mine.candidates.remove(me)) {
+					status(player, "You are no longer running in the election.", true);
+					changed = true;
+				}
+			}
+
+			case NationActionPayload.SET_RANK -> {
+				UUID who = parseUuid(a.target());
+				int rank = a.color();
+
+				if (mine == null || !mine.leader.equals(me) || who == null || who.equals(me) || !mine.isMember(who)
+						|| rank < com.mapnationswars.nation.Ranks.CITIZEN || rank > com.mapnationswars.nation.Ranks.MINISTER) {
+					return;
+				}
+
+				mine.ranks.put(who, rank);
+				syncOfficers(mine);
+				NationData.Member m = mine.member(who);
+				status(player, m.name() + " is now a " + com.mapnationswars.nation.Ranks.name(rank) + ".", true);
+				notifyPlayer(server, who, "You are now a " + com.mapnationswars.nation.Ranks.name(rank) + " of " + mine.name + ".");
+				changed = true;
+			}
+
 			case NationActionPayload.MAKE_OFFICER, NationActionPayload.REMOVE_OFFICER -> {
 				UUID who = parseUuid(a.target());
 
@@ -915,10 +1008,13 @@ public final class ServerNations {
 						mine.officers.add(who);
 					}
 
+					mine.ranks.put(who, Math.max(com.mapnationswars.nation.Ranks.OFFICER, mine.rankOf(who)));
+
 					status(player, m.name() + " is now an Officer.", true);
 					notifyPlayer(server, who, "You are now an Officer of " + mine.name + " - you can propose new land.");
 				} else {
 					mine.officers.remove(who);
+					mine.ranks.put(who, com.mapnationswars.nation.Ranks.SOLDIER);
 					status(player, m.name() + " is no longer an Officer.", true);
 				}
 
@@ -1153,6 +1249,16 @@ public final class ServerNations {
 					n.lastBalance = o.get("lastBalance").getAsInt();
 				}
 
+				if (o.has("politics")) {
+					JsonObject pol = o.getAsJsonObject("politics");
+					readIntMap(pol.getAsJsonObject("ranks"), n.ranks);
+					readIntMap(pol.getAsJsonObject("merit"), n.merit);
+					readIntMap(pol.getAsJsonObject("owed"), n.owed);
+					readIds(pol.getAsJsonArray("candidates"), n.candidates);
+					n.nextElection = pol.get("nextElection").getAsLong();
+					n.lastElection = pol.get("lastElection").getAsString();
+				}
+
 				if (n.ai) {
 					NATIONS.put(n.id, n); // run by the game: no players needed
 				} else if (!n.members.isEmpty()) {
@@ -1224,6 +1330,26 @@ public final class ServerNations {
 		}
 	}
 
+	private static void readIntMap(JsonObject o, Map<UUID, Integer> into) {
+		if (o == null) {
+			return;
+		}
+
+		for (String key : o.keySet()) {
+			into.put(UUID.fromString(key), o.get(key).getAsInt());
+		}
+	}
+
+	private static JsonObject writeIntMap(Map<UUID, Integer> map) {
+		JsonObject o = new JsonObject();
+
+		for (Map.Entry<UUID, Integer> e : map.entrySet()) {
+			o.addProperty(e.getKey().toString(), e.getValue());
+		}
+
+		return o;
+	}
+
 	private static JsonArray writeIds(List<UUID> list) {
 		JsonArray arr = new JsonArray();
 
@@ -1274,6 +1400,14 @@ public final class ServerNations {
 
 			o.addProperty("treasury", n.treasury);
 			o.addProperty("lastBalance", n.lastBalance);
+			JsonObject pol = new JsonObject();
+			pol.add("ranks", writeIntMap(n.ranks));
+			pol.add("merit", writeIntMap(n.merit));
+			pol.add("owed", writeIntMap(n.owed));
+			pol.add("candidates", writeIds(n.candidates));
+			pol.addProperty("nextElection", n.nextElection);
+			pol.addProperty("lastElection", n.lastElection);
+			o.add("politics", pol);
 
 			if (n.ai) {
 				o.addProperty("ai", true);

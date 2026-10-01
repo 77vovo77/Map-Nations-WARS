@@ -29,8 +29,18 @@ In RP you paint the map yourself. In **WARS** the world is already full of natio
 - **Orders** can be given by the nation's leaders. Since players can't lead nations yet, a player in **creative mode** can give orders (for testing).
 - Every nation has a **treasury** kept by the server (it can't be stolen). The nation page shows it and how much it changes per day.
 
+## Nations and ranks (stage 3)
+- **Joining:** you start without a nation. Open a **villager** nation in the Nations tab and click **Ask to join** - its ruler takes you in as a **Citizen**. (Illager, piglin and undead nations don't take in humans.)
+- **Ranks:** Citizen → Soldier → Officer → Minister. In nations ruled by the game you are **promoted by merit**:
+  - Soldier at 20 merit, Officer at 80, Minister at 250.
+  - Merit: +1 every 5 minutes you spend in your nation's land, +2 for every monster you kill there, +1 for every emerald you give to your nation's villages.
+- **Salaries** (from the nation's treasury, every day): Soldier 2, Officer 5, Minister 10, leader 15 emeralds. They are saved for you - **collect them at any mayor** of your nation (button "Salary" on the village page).
+- **Ministers and the leader** can order buildings in the nation's villages, and **deposit or withdraw** emeralds from the treasury at the **capital's mayor**.
+- **Elections:** nations with a democratic ideology (liberal, libertarian, socialist, syndicalist, agrarian, anarchist, technocratic) vote every **7 days**. Officers and higher can **Run for** leader on the nation page. Every village votes for the candidate it likes most - players win votes with merit, the game's ruler with happy villages. Win, and **you become the leader** of the nation (you can then promote and demote members with ▲ / ▼, and kick them). Lose the next election, or leave, and the game rules again.
+- The nation page shows your rank, merit, the next promotion, your salary and what is waiting for you, plus the next election, the candidates and the last result.
+- Nations without elections (empires, kingdoms, holy orders...) can only change rulers by force - coming in stage 7.
+
 ## Coming next
-3. Joining nations and ranks, salaries, elections.
 4. Letters and diplomacy.
 5. War: divisions, battles, sieges.
 6. AI nations acting on their own.

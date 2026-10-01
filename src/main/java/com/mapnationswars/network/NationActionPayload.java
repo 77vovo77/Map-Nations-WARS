@@ -34,6 +34,11 @@ public record NationActionPayload(int action, String target, String name, int co
 	/** Territory proposals from officers (leader only). */
 	public static final int ACCEPT_PROPOSALS = 15;
 	public static final int DENY_PROPOSALS = 16;
+	/** Map Nations WARS: elections and ranks. */
+	public static final int RUN_FOR_OFFICE = 17;
+	public static final int WITHDRAW_CANDIDACY = 18;
+	/** target = member, color = new rank (leader only) */
+	public static final int SET_RANK = 19;
 
 	public static final CustomPacketPayload.Type<NationActionPayload> TYPE =
 			new CustomPacketPayload.Type<>(MapNationsMod.id("nation_action"));

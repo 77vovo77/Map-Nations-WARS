@@ -12,6 +12,10 @@ public record VillageActionPayload(String province, int action, String argument,
 	public static final int ORDER = 0;
 	/** amount = emeralds (0 = all you carry) */
 	public static final int DONATE = 1;
+	public static final int COLLECT_SALARY = 2;
+	/** amount = emeralds; at the capital, Ministers and the leader only */
+	public static final int DEPOSIT = 3;
+	public static final int WITHDRAW = 4;
 
 	public static final CustomPacketPayload.Type<VillageActionPayload> TYPE =
 			new CustomPacketPayload.Type<>(MapNationsMod.id("village_action"));

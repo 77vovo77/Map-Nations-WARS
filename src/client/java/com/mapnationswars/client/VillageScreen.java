@@ -22,7 +22,7 @@ import com.mapnationswars.network.VillageActionPayload;
  */
 public class VillageScreen extends Screen {
 	private static final int W = 300;
-	private static final int H = 236;
+	private static final int H = 262;
 	/** Costs and effects, same as the server (WarsEconomy.Build). */
 	private static final String[][] BUILDS = {
 		{"HOUSE", "House", "12", "+2 beds"},
@@ -53,7 +53,21 @@ public class VillageScreen extends Screen {
 		}
 
 		NationData n = ClientNations.get(p.nation);
-		return this.minecraft.player.isCreative() || (n != null && !n.ai && n.leader.equals(this.minecraft.player.getUUID()));
+		UUID me = this.minecraft.player.getUUID();
+		return this.minecraft.player.isCreative() || (n != null && (n.leader.equals(me)
+				|| (n.isMember(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.MINISTER)));
+	}
+
+	/** Am I a member of the nation that owns this village? */
+	private NationData myNationHere(ProvinceData p) {
+		NationData n = ClientNations.get(p.nation);
+		return n != null && this.minecraft != null && this.minecraft.player != null && n.isMember(this.minecraft.player.getUUID()) ? n : null;
+	}
+
+	private boolean canUseTreasury(ProvinceData p) {
+		NationData n = this.myNationHere(p);
+		UUID me = this.minecraft.player.getUUID();
+		return n != null && p.capital && (n.leader.equals(me) || n.rankOf(me) >= com.mapnationswars.nation.Ranks.MINISTER);
 	}
 
 	private int carried() {
@@ -89,7 +103,7 @@ public class VillageScreen extends Screen {
 		}
 
 		boolean village = p.type == ProvinceData.Type.VILLAGE && !p.abandoned;
-		int y = this.top + h - 54;
+		int y = this.top + h - 80;
 
 		if (village) {
 			// orders
@@ -100,6 +114,27 @@ public class VillageScreen extends Screen {
 				Button button = this.addRenderableWidget(Button.builder(Component.literal(b[1] + " (" + b[2] + ")"),
 						btn -> this.send(VillageActionPayload.ORDER, b[0], 0)).pos(this.left + 12 + i * (bw + 4), y).size(bw, 20).build());
 				button.active = this.canOrder(p) && p.building.isEmpty();
+			}
+		}
+
+		// salary and treasury (members of the nation, in person)
+		NationData mine = this.myNationHere(p);
+		int my = this.top + h - 54;
+		int mw = (w - 24 - 8) / 3;
+
+		if (mine != null) {
+			int owed = mine.owed.getOrDefault(this.minecraft.player.getUUID(), 0);
+			Button collect = this.addRenderableWidget(Button.builder(Component.literal("Salary (" + owed + ")"),
+					b -> this.send(VillageActionPayload.COLLECT_SALARY, "", 0)).pos(this.left + 12, my).size(mw, 20).build());
+			collect.active = this.atMayor && owed > 0;
+
+			if (this.canUseTreasury(p)) {
+				Button dep = this.addRenderableWidget(Button.builder(Component.literal("Deposit 10"),
+						b -> this.send(VillageActionPayload.DEPOSIT, "", 10)).pos(this.left + 12 + mw + 4, my).size(mw, 20).build());
+				Button wd = this.addRenderableWidget(Button.builder(Component.literal("Withdraw 10"),
+						b -> this.send(VillageActionPayload.WITHDRAW, "", 10)).pos(this.left + 12 + (mw + 4) * 2, my).size(mw, 20).build());
+				dep.active = this.atMayor;
+				wd.active = this.atMayor;
 			}
 		}
 
@@ -220,10 +255,15 @@ public class VillageScreen extends Screen {
 				graphics.text(this.font, "Only the nation's leaders can order buildings.", l + 12, y, 0xFF888888);
 			}
 
-			// gifts
-			int gy = t + h - 28 - 12;
-			String gift = this.atMayor ? "Give emeralds (you carry " + this.carried() + "):" : "Talk to the mayor to give emeralds.";
-			graphics.text(this.font, gift, l + 12, gy, 0xFF888888);
+			// your money here
+			NationData mine = this.myNationHere(p);
+			String info = this.atMayor ? "You carry " + this.carried() + " emeralds." : "Talk to the mayor to give or collect emeralds.";
+
+			if (mine != null && p.capital) {
+				info += "  Treasury: " + mine.treasury;
+			}
+
+			graphics.text(this.font, info, l + 12, t + h - 92 - 4, 0xFF888888);
 		} else {
 			graphics.text(this.font, p.type == ProvinceData.Type.BASTION ? "A piglin stronghold. Lives from gold and raids."
 					: "An illager stronghold. Lives from raids.", l + 12, y, 0xFF888888);
@@ -234,7 +274,7 @@ public class VillageScreen extends Screen {
 		// costs on hover
 		if (village) {
 			int bw = (w - 24 - 8) / 3;
-			int by = t + h - 54;
+			int by = t + h - 80;
 
 			for (int i = 0; i < BUILDS.length; i++) {
 				int bx = l + 12 + i * (bw + 4);

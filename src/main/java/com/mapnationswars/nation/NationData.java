@@ -38,6 +38,28 @@ public final class NationData {
 	/** Treasury change on the last day (taxes minus upkeep). */
 	public int lastBalance = 0;
 
+	// ---------------------------------------------------------------- stage 3: ranks, merit, salaries, elections
+	/** player -> rank (Ranks.CITIZEN ... Ranks.MINISTER) */
+	public final java.util.Map<UUID, Integer> ranks = new java.util.HashMap<>();
+	/** player -> merit earned by serving the nation */
+	public final java.util.Map<UUID, Integer> merit = new java.util.HashMap<>();
+	/** player -> salary not collected yet (emeralds) */
+	public final java.util.Map<UUID, Integer> owed = new java.util.HashMap<>();
+	/** Players running in the next election. */
+	public final List<UUID> candidates = new ArrayList<>();
+	/** Day (game time / 24000) of the next election; 0 = none planned. */
+	public long nextElection = 0;
+	public String lastElection = "";
+
+	public int rankOf(UUID player) {
+		return this.ranks.getOrDefault(player, Ranks.CITIZEN);
+	}
+
+	/** True while the nation is ruled by the game (no player is its leader). */
+	public boolean aiRuled() {
+		return this.ai && !this.isMember(this.leader);
+	}
+
 	/** Members with the Officer rank: they can propose new territory. */
 	public final List<UUID> officers = new ArrayList<>();
 	public boolean isOfficer(UUID player) {
@@ -77,7 +99,7 @@ public final class NationData {
 	}
 
 	public String leaderName() {
-		if (this.ai) {
+		if (this.ai && this.member(this.leader) == null) {
 			return this.rulerName;
 		}
 
@@ -105,6 +127,30 @@ public final class NationData {
 		buf.writeUtf(this.rulerName);
 		buf.writeVarLong(this.treasury);
 		buf.writeInt(this.lastBalance);
+		writeIntMap(buf, this.ranks);
+		writeIntMap(buf, this.merit);
+		writeIntMap(buf, this.owed);
+		writeIds(buf, this.candidates);
+		buf.writeVarLong(this.nextElection);
+		buf.writeUtf(this.lastElection);
+	}
+
+	private static void writeIntMap(RegistryFriendlyByteBuf buf, java.util.Map<UUID, Integer> map) {
+		buf.writeVarInt(map.size());
+
+		for (java.util.Map.Entry<UUID, Integer> e : map.entrySet()) {
+			writeUuid(buf, e.getKey());
+			buf.writeVarInt(e.getValue());
+		}
+	}
+
+	private static void readIntMap(RegistryFriendlyByteBuf buf, java.util.Map<UUID, Integer> into) {
+		int n = buf.readVarInt();
+
+		for (int i = 0; i < n; i++) {
+			UUID id = readUuid(buf);
+			into.put(id, buf.readVarInt());
+		}
 	}
 
 	public static NationData read(RegistryFriendlyByteBuf buf) {
@@ -125,6 +171,12 @@ public final class NationData {
 		n.rulerName = buf.readUtf();
 		n.treasury = buf.readVarLong();
 		n.lastBalance = buf.readInt();
+		readIntMap(buf, n.ranks);
+		readIntMap(buf, n.merit);
+		readIntMap(buf, n.owed);
+		readIds(buf, n.candidates);
+		n.nextElection = buf.readVarLong();
+		n.lastElection = buf.readUtf();
 		return n;
 	}
 
