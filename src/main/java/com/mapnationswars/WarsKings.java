@@ -238,15 +238,16 @@ public final class WarsKings {
 		}
 
 		if (king instanceof Villager v) {
-			v.getBrain().removeAllBehaviors();
-			v.getBrain().clearMemories();
-
 			try {
 				v.setVillagerData(v.getVillagerData().withProfession(level.registryAccess(), VillagerProfession.CLERIC));
 				v.setVillagerDataFinalized(true);
 			} catch (Exception ignored) {
 				// keeps its looks
 			}
+
+			// no villager business (after the profession is set, so nothing rebuilds it)
+			v.getBrain().removeAllBehaviors();
+			v.getBrain().clearMemories();
 		}
 
 		try {

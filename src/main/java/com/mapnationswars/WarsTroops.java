@@ -259,15 +259,16 @@ public final class WarsTroops {
 
 		if (mob instanceof Villager v) {
 			// a villager soldier: no villager business, a sword (or a bow) and some armour
-			v.getBrain().removeAllBehaviors();
-			v.getBrain().clearMemories();
-
 			try {
 				v.setVillagerData(v.getVillagerData().withProfession(level.registryAccess(), archer ? VillagerProfession.FLETCHER : VillagerProfession.ARMORER));
 				v.setVillagerDataFinalized(true);
 			} catch (Exception ignored) {
 				// keeps its looks
 			}
+
+			// no villager business (after the profession is set, so nothing rebuilds it)
+			v.getBrain().removeAllBehaviors();
+			v.getBrain().clearMemories();
 
 			v.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(archer ? Items.BOW : Items.IRON_SWORD));
 			setHealth(v, 30);
