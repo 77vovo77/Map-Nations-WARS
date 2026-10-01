@@ -40,14 +40,27 @@ In RP you paint the map yourself. In **WARS** the world is already full of natio
 - The nation page shows your rank, merit, the next promotion, your salary and what is waiting for you, plus the next election, the candidates and the last result.
 - Nations without elections (empires, kingdoms, holy orders...) can only change rulers by force - coming in stage 7.
 
+## Letters and diplomacy (stage 4)
+- New **Letters** tab (press **M**). Leaders and **Ministers** can write letters to any other nation, player-led or AI.
+- Letter types:
+  - **Message**: just words.
+  - **Gift**: emeralds from your treasury, held until they answer. If they refuse, the emeralds come back.
+  - **Trade agreement**: both treasuries earn 3 emeralds a day while it lasts.
+  - **Alliance**: only nations that like you a lot (opinion 40+) agree.
+  - **Peace**: ends a war.
+  - **Demand tribute**: a much weaker nation may pay, and everyone you threaten will hate you for it.
+  - **Declaration of war**: takes effect right away. It ends trade and alliances between you. Battles come in stage 5.
+- AI nations answer at once, in their own voice. Villagers are polite, illagers are rude, piglins want gold and the undead hiss. Player-led nations answer from their Letters tab with **Accept** or **Refuse**.
+- **Opinion** (-100 to 100) is how one nation sees another. It starts from faction and ideology: villagers dislike illagers, everyone fears the undead, and similar governments get along. Gifts, trade, alliances and wars then move it, and grudges slowly fade day by day.
+- The **Relations** view in the Letters tab shows how every nation sees yours. Each nation page shows its opinion of you, any war, alliance or trade deal, and a **Write a letter** button.
+
 ## Coming next
-4. Letters and diplomacy.
 5. War: divisions, battles, sieges.
 6. AI nations acting on their own.
 7. Revolts, coups and founding your own nation.
 8. Portals: ruined portals waking up, invasions between the Nether and the Overworld.
 
-Press **M** to open it. The top bar shows **Map Nations WARS** and three tabs: **Map**, **Nations** and **Alliances**.
+Press **M** to open it. The top bar shows **Map Nations WARS** and four tabs: **Map**, **Nations**, **Alliances** and **Letters**.
 
 ## Map tab
 - **The whole world is visible right away** - no exploring needed. The server works out what places you haven't visited look like (height, water, biomes, forests, snow, mountains) and fills them in, starting from the middle of the view. Places you really visit are then drawn exactly, block by block. The filled-in land is saved, so it shows instantly next time.

@@ -1186,6 +1186,7 @@ public final class ServerNations {
 
 		// who is in which nation may have changed -> who can see which markers too
 		ServerMarkers.broadcast(server);
+		WarsDiplomacy.broadcast(server);
 	}
 
 	private static void sendPlayerPositions(MinecraftServer server) {

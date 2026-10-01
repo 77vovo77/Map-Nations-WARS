@@ -31,7 +31,8 @@ abstract class MapNationsBaseScreen extends Screen {
 	enum Tab {
 		MAP("Map"),
 		NATIONS("Nations"),
-		ALLIANCES("Alliances");
+		ALLIANCES("Alliances"),
+		LETTERS("Letters");
 
 		final String label;
 
@@ -135,6 +136,7 @@ abstract class MapNationsBaseScreen extends Screen {
 			case MAP -> new MapScreen(false);
 			case NATIONS -> new NationsScreen();
 			case ALLIANCES -> new AlliancesScreen();
+			case LETTERS -> new LettersScreen();
 		};
 
 		this.minecraft.gui.setScreen(next);

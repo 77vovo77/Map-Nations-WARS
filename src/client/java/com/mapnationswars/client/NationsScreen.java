@@ -304,7 +304,23 @@ public class NationsScreen extends PagedScreen {
 			}
 		}
 
+		// diplomacy (stage 4): how this nation sees yours
+		NationData mine = ClientNations.myNation();
+
+		if (mine != null && !mine.id.equals(n.id)) {
+			int o = ClientDiplomacy.opinion(n, mine);
+			String tags = (ClientDiplomacy.atWar(n.id, mine.id) ? "   AT WAR" : "")
+					+ (mine.allies.contains(n.id) ? "   Allies" : "")
+					+ (ClientDiplomacy.trading(n.id, mine.id) ? "   Trade deal" : "");
+			lines.addAll(this.wrap("Opinion of " + mine.name + ": " + com.mapnationswars.nation.Relations.label(o)
+					+ " (" + (o > 0 ? "+" : "") + o + ")" + tags, this.innerW()));
+		}
+
 		return lines;
+	}
+
+	private boolean canWriteLetters(NationData mine) {
+		return mine != null && (mine.leader.equals(this.myId()) || mine.rankOf(this.myId()) >= com.mapnationswars.nation.Ranks.MINISTER);
 	}
 
 	private List<ButtonSpec> bottomButtons(NationData n) {
@@ -360,6 +376,15 @@ public class NationsScreen extends PagedScreen {
 			}
 
 			list.add(new ButtonSpec(label, 150, b -> this.send(NationActionPayload.simple(action, nationId))));
+		}
+
+		// letters: leaders and Ministers write to other nations
+		if (!isMine && this.canWriteLetters(mine)) {
+			list.add(new ButtonSpec("\u270E Write a letter", 120, b -> {
+				if (this.minecraft != null) {
+					this.minecraft.gui.setScreen(new LettersScreen(n.id));
+				}
+			}));
 		}
 
 		return list;
