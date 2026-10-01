@@ -69,6 +69,10 @@ public final class WarsTroops {
 			if (++tickCount % 10 == 0 && !ENGAGED.isEmpty()) {
 				villagersFight(server);
 			}
+
+			if (tickCount % 5 == 0 && !BOATS.isEmpty()) {
+				row(server);
+			}
 		});
 
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
@@ -81,6 +85,9 @@ public final class WarsTroops {
 			ENGAGED.remove(entity.getUUID());
 			COOLDOWN.remove(entity.getUUID());
 			WarsWar.untrack(entity.getUUID());
+			dropBoat(entity.level() instanceof ServerLevel sl ? sl : null, entity.getUUID());
+			LAST_POS.remove(entity.getUUID());
+			STUCK.remove(entity.getUUID());
 
 			if (t.garrison()) {
 				WarsWar.garrisonKilled(t.group());
@@ -281,6 +288,12 @@ public final class WarsTroops {
 			// not a piglin
 		}
 
+		// the undead wear helmets so the sun doesn't burn them
+		if (n.faction == com.mapnationswars.nation.Faction.UNDEAD) {
+			mob.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.CHAINMAIL_HELMET));
+			mob.setDropChance(EquipmentSlot.HEAD, 0f);
+		}
+
 		mob.setDropChance(EquipmentSlot.MAINHAND, 0f);
 		mob.setPersistenceRequired();
 		mob.setCustomName(Component.literal(WarsWar.soldierPrefix() + (garrison ? "Defender" : kind.unitName(n.faction))).withColor(n.color));
@@ -363,11 +376,120 @@ public final class WarsTroops {
 		double[] at = formation(cx, cz, t.slot());
 		double dist = Math.hypot(mob.getX() - at[0], mob.getZ() - at[1]);
 
-		if (dist > 48) {
+		// across water: into a boat (and out of it again on the other shore)
+		if (boats(level, id, mob, at, dist)) {
+			return;
+		}
+
+		// stuck somewhere (a hole, a wall, a tree): after a few seconds without getting closer, go straight to its place
+		double[] last = LAST_POS.put(id, new double[] {mob.getX(), mob.getZ()});
+		int stuck = last != null && dist > 4 && Math.hypot(mob.getX() - last[0], mob.getZ() - last[1]) < 0.4 ? STUCK.merge(id, 1, Integer::sum) : 0;
+
+		if (stuck == 0) {
+			STUCK.remove(id);
+		}
+
+		if (dist > 48 || stuck >= 6) {
 			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, floor(at[0]), floor(at[1]));
 			mob.teleportTo(at[0], y, at[1]);
+			STUCK.remove(id);
 		} else if (dist > 2.5) {
 			mob.getNavigation().moveTo(at[0], mob.getY(), at[1], t.villager() ? 0.75 : 1.0);
+		}
+	}
+
+	// ---------------------------------------------------------------- boats (2.1)
+
+	private static final Map<UUID, UUID> BOATS = new HashMap<>();
+	private static final Map<UUID, double[]> LAST_POS = new HashMap<>();
+	private static final Map<UUID, Integer> STUCK = new HashMap<>();
+	/** troop -> where its boat is going */
+	private static final Map<UUID, double[]> SAILING = new HashMap<>();
+
+	private static boolean water(ServerLevel level, double x, double z) {
+		int bx = floor(x);
+		int bz = floor(z);
+
+		if (!level.getChunkSource().hasChunk(bx >> 4, bz >> 4)) {
+			return false;
+		}
+
+		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz);
+		return level.getBlockState(new net.minecraft.core.BlockPos(bx, y - 1, bz)).liquid();
+	}
+
+	/**
+	 * Soldiers who have to cross water get a boat; on the far shore they step out and the boat is gone.
+	 * Returns true while the soldier is handled by its boat.
+	 */
+	private static boolean boats(ServerLevel level, UUID id, Mob mob, double[] at, double dist) {
+		UUID boatId = BOATS.get(id);
+		Entity boat = boatId != null ? level.getEntity(boatId) : null;
+
+		if (boat != null && mob.isPassenger()) {
+			boolean shore = !water(level, at[0], at[1]) && dist < 6;
+
+			if (shore || dist < 2) {
+				mob.stopRiding();
+				boat.discard();
+				BOATS.remove(id);
+				SAILING.remove(id);
+				return false;
+			}
+
+			SAILING.put(id, at);
+			return true;
+		}
+
+		if (boat != null) {
+			boat.discard(); // fell out of it
+			BOATS.remove(id);
+			SAILING.remove(id);
+		}
+
+		boolean wet = mob.isInWater() || (dist > 3 && water(level, (mob.getX() + at[0]) / 2, (mob.getZ() + at[1]) / 2) && water(level, at[0], at[1]));
+
+		if (!wet || dist < 3) {
+			return false;
+		}
+
+		Entity newBoat = WarsWar.spawnEntity(level, "OAK_BOAT", floor(mob.getX()), floor(mob.getY()), floor(mob.getZ()));
+
+		if (newBoat == null) {
+			return false;
+		}
+
+		if (!mob.startRiding(newBoat)) {
+			// too big for a boat (golems, ravagers): they wade and swim instead, or jump ahead
+			newBoat.discard();
+			return false;
+		}
+
+		BOATS.put(id, newBoat.getUUID());
+		SAILING.put(id, at);
+		return true;
+	}
+
+	/** Boats are rowed a little every half second towards where their soldier has to go. */
+	private static void row(MinecraftServer server) {
+		for (Map.Entry<UUID, UUID> e : new ArrayList<>(BOATS.entrySet())) {
+			Troop t = TROOPS.get(e.getKey());
+			ServerLevel level = t != null ? WarsWorld.levelOf(server, t.dimension()) : null;
+			Entity boat = level != null ? level.getEntity(e.getValue()) : null;
+			double[] to = SAILING.get(e.getKey());
+
+			if (boat == null || to == null) {
+				continue;
+			}
+
+			double dx = to[0] - boat.getX();
+			double dz = to[1] - boat.getZ();
+			double d = Math.hypot(dx, dz);
+
+			if (d > 0.5) {
+				boat.setDeltaMovement(dx / d * 0.45, 0, dz / d * 0.45);
+				boat.setYRot((float) (Math.toDegrees(Math.atan2(-dx, dz))));
+			}
 		}
 	}
 
@@ -467,10 +589,29 @@ public final class WarsTroops {
 			e.discard();
 		}
 
+		dropBoat(level, id);
+		LAST_POS.remove(id);
+		STUCK.remove(id);
+
 		TROOPS.remove(id);
 		ENGAGED.remove(id);
 		COOLDOWN.remove(id);
 		WarsWar.untrack(id);
+	}
+
+	private static void dropBoat(ServerLevel level, UUID troop) {
+		UUID boatId = BOATS.remove(troop);
+		SAILING.remove(troop);
+
+		if (boatId != null && level != null) {
+			Entity boat = level.getEntity(boatId);
+
+			if (boat != null) {
+				boat.discard();
+			}
+
+			WarsWar.untrack(boatId);
+		}
 	}
 
 	/** Removes the soldiers of a division (or the defenders of a province). */

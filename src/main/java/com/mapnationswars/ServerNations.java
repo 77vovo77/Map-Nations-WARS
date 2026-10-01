@@ -951,6 +951,21 @@ public final class ServerNations {
 				return;
 			}
 
+			case NationActionPayload.CAMPAIGN -> {
+				WarsPolitics.campaign(server, player);
+				return;
+			}
+
+			case NationActionPayload.VOTE -> {
+				WarsPolitics.vote(server, player, a.target());
+				return;
+			}
+
+			case NationActionPayload.PLOT -> {
+				WarsRevolts.plot(server, player, a.ideology());
+				return;
+			}
+
 			case NationActionPayload.COUP -> {
 				WarsRevolts.coup(server, player);
 				return;
@@ -1311,6 +1326,26 @@ public final class ServerNations {
 					readIds(pol.getAsJsonArray("candidates"), n.candidates);
 					n.nextElection = pol.get("nextElection").getAsLong();
 					n.lastElection = pol.get("lastElection").getAsString();
+
+					if (pol.has("campaign")) {
+						readIntMap(pol.getAsJsonObject("campaign"), n.campaign);
+					}
+
+					if (pol.has("votes")) {
+						JsonObject v = pol.getAsJsonObject("votes");
+
+						for (String k : v.keySet()) {
+							n.votes.put(UUID.fromString(k), UUID.fromString(v.get(k).getAsString()));
+						}
+					}
+
+					if (pol.has("results")) {
+						JsonObject r = pol.getAsJsonObject("results");
+
+						for (String k : r.keySet()) {
+							n.lastResults.put(k, r.get(k).getAsInt());
+						}
+					}
 				}
 
 				if (n.ai) {
@@ -1469,6 +1504,21 @@ public final class ServerNations {
 			pol.add("candidates", writeIds(n.candidates));
 			pol.addProperty("nextElection", n.nextElection);
 			pol.addProperty("lastElection", n.lastElection);
+			pol.add("campaign", writeIntMap(n.campaign));
+			JsonObject votes = new JsonObject();
+
+			for (Map.Entry<UUID, UUID> e : n.votes.entrySet()) {
+				votes.addProperty(e.getKey().toString(), e.getValue().toString());
+			}
+
+			pol.add("votes", votes);
+			JsonObject results = new JsonObject();
+
+			for (Map.Entry<String, Integer> e : n.lastResults.entrySet()) {
+				results.addProperty(e.getKey(), e.getValue());
+			}
+
+			pol.add("results", results);
 			o.add("politics", pol);
 
 			if (n.ai) {

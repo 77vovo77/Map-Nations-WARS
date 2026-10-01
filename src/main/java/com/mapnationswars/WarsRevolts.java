@@ -54,7 +54,6 @@ public final class WarsRevolts {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final int CHARTER_COST = Charter.COST;
 	private static final int COUP_MERIT = Charter.COUP_MERIT;
-	private static final int COUP_COST = Charter.COUP_COST;
 	private static final int COUP_COOLDOWN_DAYS = 3;
 	/** Within this many blocks of a province's centre you are "in" it (for support). */
 	private static final double PROVINCE_REACH = 90;
@@ -219,6 +218,90 @@ public final class WarsRevolts {
 
 	// ---------------------------------------------------------------- coups
 
+	// ---------------------------------------------------------------- the conspiracy (2.1)
+
+	/** player -> how far their plot got (0..100) */
+	private static final Map<UUID, Integer> CONSPIRACY = new HashMap<>();
+	private static final Map<UUID, Long> LAST_ARMY = new HashMap<>();
+	private static final Map<UUID, Long> LAST_BRIBE = new HashMap<>();
+
+	static int conspiracy(UUID player) {
+		return CONSPIRACY.getOrDefault(player, 0);
+	}
+
+	/**
+	 * Building a conspiracy before a coup: BRIBE officials (20 emeralds, +15, they may talk),
+	 * or win the ARMY over (Ministers, or whoever commanded one of the nation's armies; +20, once a day).
+	 * An unhappy people makes the plot grow by itself every day.
+	 */
+	static void plot(MinecraftServer server, ServerPlayer player, String how) {
+		UUID me = player.getUUID();
+		NationData n = ServerNations.nationOf(me);
+
+		if (n == null || n.leader.equals(me)) {
+			ServerNations.status(player, n == null ? "You are in no nation." : "You already rule.", false);
+			return;
+		}
+
+		if (n.rankOf(me) < Ranks.OFFICER) {
+			ServerNations.status(player, "Only Officers and Ministers know the right people. Earn merit first.", false);
+			return;
+		}
+
+		long now = server.overworld().getGameTime();
+		long day = now / WarsEconomy.DAY_TICKS;
+
+		if ("ARMY".equals(how)) {
+			boolean commands = n.rankOf(me) >= Ranks.MINISTER;
+
+			for (com.mapnationswars.nation.DivisionData d : WarsWar.divisionsOf(n.id)) {
+				commands |= me.equals(d.commander);
+			}
+
+			if (!commands) {
+				ServerNations.status(player, "The soldiers don't know you. Command one of the nation's armies first (War tab / map).", false);
+				return;
+			}
+
+			if (LAST_ARMY.getOrDefault(me, -1L) == day) {
+				ServerNations.status(player, "You already spoke to the soldiers today.", false);
+				return;
+			}
+
+			LAST_ARMY.put(me, day);
+			int v = CONSPIRACY.merge(me, 20, (a, b) -> Math.min(100, a + b));
+			ServerNations.status(player, "Soldiers of " + n.name + " swear to follow you. Conspiracy " + v + "%.", true);
+		} else {
+			if (now - LAST_BRIBE.getOrDefault(me, -10000L) < 1200) {
+				ServerNations.status(player, "Bribing too fast draws attention. Wait a minute.", false);
+				return;
+			}
+
+			if (WarsItems.countEmeralds(player) < Charter.BRIBE_COST) {
+				ServerNations.status(player, "A bribe costs " + Charter.BRIBE_COST + " emeralds (carry them).", false);
+				return;
+			}
+
+			WarsItems.takeEmeralds(player, Charter.BRIBE_COST);
+			LAST_BRIBE.put(me, now);
+
+			if (RANDOM.nextDouble() < 0.15) {
+				// someone talked
+				int v = CONSPIRACY.getOrDefault(me, 0) / 2;
+				CONSPIRACY.put(me, v);
+				n.merit.put(me, Math.max(0, n.merit.getOrDefault(me, 0) - 30));
+				ServerNations.status(player, "\u26A0 An official took your emeralds and talked! The plot is half exposed (" + v + "%), -30 merit.", false);
+				ServerNations.notifyPlayer(server, n.leader, "Rumours of a plot against you in " + n.name + "...");
+			} else {
+				int v = CONSPIRACY.merge(me, 15, (a, b) -> Math.min(100, a + b));
+				ServerNations.status(player, "An official of " + n.name + " joins your plot. Conspiracy " + v + "%.", true);
+			}
+		}
+
+		WarsPeople.sync(player);
+		save();
+	}
+
 	static void coup(MinecraftServer server, ServerPlayer player) {
 		UUID me = player.getUUID();
 		NationData n = ServerNations.nationOf(me);
@@ -244,20 +327,22 @@ public final class WarsRevolts {
 			return;
 		}
 
-		if (WarsItems.countEmeralds(player) < COUP_COST) {
-			ServerNations.status(player, "Bribes cost " + COUP_COST + " emeralds. Carry them with you.", false);
+		int plot = CONSPIRACY.getOrDefault(me, 0);
+
+		if (plot < Charter.COUP_READY) {
+			ServerNations.status(player, "Your conspiracy is too small (" + plot + "/" + Charter.COUP_READY + "). Bribe officials, win the army.", false);
 			return;
 		}
 
-		WarsItems.takeEmeralds(player, COUP_COST);
 		LAST_COUP.put(me, day);
+		CONSPIRACY.remove(me);
 		boolean leaderOnline = false;
 
 		for (ServerPlayer p : PlayerLookup.all(server)) {
 			leaderOnline |= p.getUUID().equals(n.leader);
 		}
 
-		double chance = Charter.coupChance(n, me, averageHappiness(n), leaderOnline);
+		double chance = Charter.coupChance(n, me, averageHappiness(n), leaderOnline, plot);
 		String name = player.getName().getString();
 
 		if (RANDOM.nextDouble() < chance) {
@@ -322,6 +407,19 @@ public final class WarsRevolts {
 		for (Map<UUID, Integer> m : SUPPORT.values()) {
 			m.replaceAll((k, v) -> Math.max(0, v - 1));
 			m.values().removeIf(v -> v <= 0);
+		}
+
+		// unhappy peoples feed every plot against their rulers
+		for (Map.Entry<UUID, Integer> e : CONSPIRACY.entrySet()) {
+			NationData n = ServerNations.nationOf(e.getKey());
+
+			if (n != null) {
+				double avg = averageHappiness(n);
+
+				if (avg < 50) {
+					e.setValue(Math.min(100, e.getValue() + (int) ((50 - avg) / 5)));
+				}
+			}
 		}
 
 		List<ProvinceData> rising = new ArrayList<>();
@@ -432,6 +530,56 @@ public final class WarsRevolts {
 
 	/** A province rises up and proclaims itself free. Restless neighbours may join. */
 	static void revolt(MinecraftServer server, ProvinceData p) {
+		revolt(server, p, null);
+	}
+
+	/**
+	 * A player raises the banner of revolt at a village that is ready (2.1): no nation, the people back them (60+),
+	 * unrest 70%+. The village rises at once and the player leads it.
+	 */
+	static void leadRevolt(MinecraftServer server, ServerPlayer player, ProvinceData p) {
+		String problem = leadProblem(player, p);
+
+		if (problem != null) {
+			ServerNations.status(player, problem, false);
+			return;
+		}
+
+		p.unrest = 100;
+		revolt(server, p, player);
+	}
+
+	static String leadProblem(ServerPlayer player, ProvinceData p) {
+		if (ServerNations.nationOf(player.getUUID()) != null) {
+			return "A rebel leader belongs to no nation. Leave yours first.";
+		}
+
+		if (p.nation == null || p.abandoned || p.type != ProvinceData.Type.VILLAGE) {
+			return "There is nobody here to lead.";
+		}
+
+		if (p.capital) {
+			return p.name + " is a capital - it won't rise.";
+		}
+
+		if (!player.level().dimension().identifier().toString().equals(p.dimension) || Math.hypot(player.getX() - p.x, player.getZ() - p.z) > 96) {
+			return "Stand in " + p.name + " to raise the banner.";
+		}
+
+		int s = support(player.getUUID(), p.id);
+
+		if (s < 60) {
+			return "The people don't trust you enough yet (support " + s + "/60).";
+		}
+
+		if (p.unrest < 70) {
+			return p.name + " isn't angry enough yet (unrest " + p.unrest + "/70). Stir it up first.";
+		}
+
+		return null;
+	}
+
+	static void revolt(MinecraftServer server, ProvinceData p, ServerPlayer chosen) {
 		NationData old = ServerNations.nation(p.nation);
 
 		if (old == null) {
@@ -458,8 +606,8 @@ public final class WarsRevolts {
 		p.funds -= p.funds / 2;
 
 		// a player the people love may lead the revolt
-		ServerPlayer hero = null;
-		int best = 59;
+		ServerPlayer hero = chosen;
+		int best = chosen != null ? Integer.MAX_VALUE : 59;
 
 		for (ServerPlayer pl : PlayerLookup.all(server)) {
 			int s = support(pl.getUUID(), p.id);
@@ -482,6 +630,13 @@ public final class WarsRevolts {
 		p.unrest = 0;
 		p.happiness = Math.max(p.happiness, 55);
 		freeMilitia(rebels, p, "Rebels");
+
+		if (hero != null) {
+			// those who back you take up arms too
+			for (com.mapnationswars.nation.DivisionData d : WarsWar.divisionsOf(rebels.id)) {
+				d.strength = Math.min(d.kind.maxStrength, d.strength + support(hero.getUUID(), p.id) / 20.0);
+			}
+		}
 		WarsDiplomacy.news(server, "🔥 " + p.name + " rose up against " + old.name + "! The rebels proclaim " + rebels.name
 				+ (hero != null ? ", led by " + hero.getName().getString() : "") + ".");
 
@@ -560,6 +715,14 @@ public final class WarsRevolts {
 				LAST_COUP.put(UUID.fromString(k), coups.get(k).getAsLong());
 			}
 
+			if (root.has("conspiracy")) {
+				JsonObject c = root.getAsJsonObject("conspiracy");
+
+				for (String k : c.keySet()) {
+					CONSPIRACY.put(UUID.fromString(k), c.get(k).getAsInt());
+				}
+			}
+
 			JsonObject hated = root.getAsJsonObject("hatedDays");
 
 			for (String k : hated.keySet()) {
@@ -603,6 +766,13 @@ public final class WarsRevolts {
 		root.add("support", support);
 		root.add("lastCoup", coups);
 		root.add("hatedDays", hated);
+		JsonObject plots = new JsonObject();
+
+		for (Map.Entry<UUID, Integer> e : CONSPIRACY.entrySet()) {
+			plots.addProperty(e.getKey().toString(), e.getValue());
+		}
+
+		root.add("conspiracy", plots);
 
 		try {
 			Path tmp = file.resolveSibling("mapnationswars_revolts.json.tmp");

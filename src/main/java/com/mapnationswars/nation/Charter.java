@@ -9,8 +9,7 @@ public final class Charter {
 	public static final int SUPPORT_NEEDED = 100;
 	/** With this much support even a happy village follows you. */
 	public static final int SUPPORT_BELOVED = 200;
-	public static final int COUP_MERIT = 150;
-	public static final int COUP_COST = 100;
+	public static final int COUP_MERIT = 100;
 
 	private Charter() {
 	}
@@ -37,14 +36,21 @@ public final class Charter {
 		return null;
 	}
 
-	/** The chance a coup works (0..1). */
-	public static double coupChance(NationData n, java.util.UUID player, double avgHappiness, boolean leaderOnline) {
-		double chance = 0.2 + Math.min(0.3, n.merit.getOrDefault(player, 0) / 1000.0) + (50 - avgHappiness) / 100.0;
+	/** Conspiracy (0..100) needed before a coup can be launched. */
+	public static final int COUP_READY = 30;
+	public static final int BRIBE_COST = 20;
+
+	/**
+	 * The chance a coup works (0..1): mostly how far the conspiracy got, helped by an unhappy people and merit,
+	 * harder against a player leader who is online.
+	 */
+	public static double coupChance(NationData n, java.util.UUID player, double avgHappiness, boolean leaderOnline, int conspiracy) {
+		double chance = conspiracy / 100.0 * 0.7 + (50 - avgHappiness) / 150.0 + Math.min(0.1, n.merit.getOrDefault(player, 0) / 2000.0);
 
 		if (!n.aiRuled() && leaderOnline) {
 			chance -= 0.15; // a player leader on guard
 		}
 
-		return Math.max(0.05, Math.min(0.85, chance));
+		return Math.max(0.05, Math.min(0.9, chance));
 	}
 }

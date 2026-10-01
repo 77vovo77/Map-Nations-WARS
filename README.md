@@ -111,7 +111,7 @@ Nations ruled by the game now act on their own.
   - Capitals never revolt.
   - If you have no nation and the people back you (60+ support), you are chosen to lead the revolt and rule the new nation.
 - **Hated leaders fall.** If the villages of a player-led nation stay miserable (under 25% average happiness) for 3 days, the people overthrow the player. The player becomes a Citizen and the game rules again.
-- **Coups.** Officers and Ministers with 150 merit can try to seize power from the nation page, with 100 emeralds for bribes. Click twice to be sure.
+- **Coups.** Officers and Ministers build a conspiracy and launch it (since 2.1, see above). Click twice to be sure.
   - The page shows the chance. It is higher with more merit and an unhappy people, and lower against a player leader who is online.
   - **If it works,** you rule the nation, and unrest rises everywhere while things settle down.
   - **If it fails,** you are exiled from the nation.
@@ -136,6 +136,27 @@ Nations ruled by the game now act on their own.
   - **Fight at the rift.** Near an open rift, Nether creatures come out for any player close by: zombified piglins, magma cubes and blazes. Every Nether creature you kill there closes the rift 2 minutes sooner.
 - **Invasions both ways.** Armies can march through open rifts and through any portal players built. Pick an army in the War tab and press **Through a portal**: it marches to the nearest usable portal and comes out on the other side, at the same place divided by 8 in the Nether.
   - The AI uses portals too. Piglin clans at war with Overworld nations come through, and Overworld nations at war with piglins invade the Nether to besiege their bastions.
+
+## 2.1.0 - Boats, better politics, easier letters
+- **Armies take boats.** Soldiers who have to cross water get into a boat, row across, step out on the other shore, and the boat is gone. Iron golems and ravagers are too big for boats; they wade or catch up.
+- **No more stuck soldiers.** A soldier who doesn't move closer to its place for 6 seconds (a hole, a wall, a tree) goes straight to its place.
+- **The undead wear helmets.** Undead soldiers, guards and the zombie villagers of abandoned villages wear helmets, so the sun doesn't burn them.
+- **Elections:**
+  - **Candidates campaign** for 10 emeralds a time (once a minute). Every 8 campaign points count like 10 merit with the voting villages.
+  - **Members vote** for a candidate or for the crown. Each member's vote counts as 3 votes.
+  - **Results:** after each election, every candidate's votes are shown as bars, and the result is in the Chronicle.
+  - **Countdown:** the page shows how long until the next election, in days and minutes.
+- **Coups are now conspiracies.** Officers build a plot step by step:
+  - **Bribe an official:** 20 emeralds, +15 conspiracy, but 1 in 7 talk. That halves the plot, costs 30 merit and the ruler hears rumours.
+  - **Win the army:** +20 once a day, if you commanded one of the nation's armies (or are a Minister).
+  - **Unhappy villages** feed every plot by themselves each day.
+  - **Launching:** from 30% conspiracy you can launch the coup. The bigger the plot, the likelier it works.
+- **Revolts have a clear end.** With no nation, 60 support and 70% unrest, the mayor offers **⚑ LEAD THE REVOLT**. The village rises at once, you rule it, and its rebel army is bigger the more the people back you. The Revolts page tells you, village by village, what to do next.
+- **Easier letters:**
+  - While writing, the list on the left shows every nation, with what it thinks of you. Click one to write to it.
+  - Preset amounts (10 / 25 / 50 / 100), and ready-made words for every kind of letter (one click).
+  - A **Reply** button on letters.
+- **One place for elections and coups:** the nation page's **Elections & coups** button opens that page in the You tab.
 
 ## 2.0.0 - Armies you can see, real kings, growing villages
 - **Armies stand in the world.** Come within about 128 blocks of a division and it appears as real soldiers. Each one stands for 2-3 soldiers, up to 12 per division. They march in formation where the division marches and fight the soldiers of nations at war with them, and any player at war with them. Every soldier killed in the world is lost by the division, so you can see the battle and help win it. When nobody is near, they go back into the map.

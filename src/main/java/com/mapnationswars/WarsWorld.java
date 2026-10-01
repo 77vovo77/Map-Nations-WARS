@@ -575,7 +575,16 @@ public final class WarsWorld {
 			AABB box = new AABB(p.x - 56, level.getMinY(), p.z - 56, p.x + 56, level.getMinY() + level.getHeight(), p.z + 56);
 			List<Villager> villagers = new ArrayList<>(level.getEntitiesOfClass(Villager.class, box));
 			villagers.removeIf(WarsBuild::isWarMob); // soldiers and kings don't live here
-			int zombies = level.getEntitiesOfClass(ZombieVillager.class, box).size();
+			List<ZombieVillager> zombieList = level.getEntitiesOfClass(ZombieVillager.class, box);
+			int zombies = zombieList.size();
+
+			// the undead of the village get hats, so they don't burn away in the sun (2.1)
+			for (ZombieVillager zv : zombieList) {
+				if (zv.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty()) {
+					zv.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+					zv.setDropChance(net.minecraft.world.entity.EquipmentSlot.HEAD, 0f);
+				}
+			}
 
 			if (villagers.size() != p.population) {
 				p.population = villagers.size();

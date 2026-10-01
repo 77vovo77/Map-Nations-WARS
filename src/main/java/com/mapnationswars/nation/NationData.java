@@ -70,6 +70,12 @@ public final class NationData {
 	/** Day (game time / 24000) of the next election; 0 = none planned. */
 	public long nextElection = 0;
 	public String lastElection = "";
+	/** 2.1: campaign points of each candidate (speeches, posters, feasts) */
+	public final java.util.Map<UUID, Integer> campaign = new java.util.HashMap<>();
+	/** 2.1: member -> the candidate they vote for */
+	public final java.util.Map<UUID, UUID> votes = new java.util.HashMap<>();
+	/** 2.1: the last election's result: name -> votes */
+	public final java.util.LinkedHashMap<String, Integer> lastResults = new java.util.LinkedHashMap<>();
 
 	public int rankOf(UUID player) {
 		return this.ranks.getOrDefault(player, Ranks.CITIZEN);
@@ -153,6 +159,21 @@ public final class NationData {
 		writeIds(buf, this.candidates);
 		buf.writeVarLong(this.nextElection);
 		buf.writeUtf(this.lastElection);
+		writeIntMap(buf, this.campaign);
+		buf.writeVarInt(this.votes.size());
+
+		for (java.util.Map.Entry<UUID, UUID> e : this.votes.entrySet()) {
+			writeUuid(buf, e.getKey());
+			writeUuid(buf, e.getValue());
+		}
+
+		buf.writeVarInt(this.lastResults.size());
+
+		for (java.util.Map.Entry<String, Integer> e : this.lastResults.entrySet()) {
+			buf.writeUtf(e.getKey());
+			buf.writeVarInt(e.getValue());
+		}
+
 		buf.writeVarInt(this.taxLevel);
 		buf.writeVarInt(this.ledger.size());
 
@@ -204,6 +225,20 @@ public final class NationData {
 		readIds(buf, n.candidates);
 		n.nextElection = buf.readVarLong();
 		n.lastElection = buf.readUtf();
+		readIntMap(buf, n.campaign);
+		int votes = buf.readVarInt();
+
+		for (int i = 0; i < votes; i++) {
+			UUID voter = readUuid(buf);
+			n.votes.put(voter, readUuid(buf));
+		}
+
+		int results = buf.readVarInt();
+
+		for (int i = 0; i < results; i++) {
+			n.lastResults.put(buf.readUtf(), buf.readVarInt());
+		}
+
 		n.taxLevel = buf.readVarInt();
 		int entries = buf.readVarInt();
 

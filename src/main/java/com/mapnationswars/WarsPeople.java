@@ -355,6 +355,19 @@ public final class WarsPeople {
 		switch (a.action()) {
 			case PersonalActionPayload.ABANDON_DUTY -> WarsDuties.abandon(player, a.target());
 			case PersonalActionPayload.NEW_DUTY -> WarsDuties.offer(server, player, true);
+			case PersonalActionPayload.LEAD_REVOLT -> {
+				ProvinceData p;
+
+				try {
+					p = WarsWorld.province(UUID.fromString(a.target()));
+				} catch (IllegalArgumentException e) {
+					p = null;
+				}
+
+				if (p != null) {
+					WarsRevolts.leadRevolt(server, player, p);
+				}
+			}
 			case PersonalActionPayload.STIR_UNREST -> {
 				ProvinceData p;
 
@@ -460,7 +473,7 @@ public final class WarsPeople {
 			list.add(new PersonalSyncPayload.Standing(n, m.getOrDefault(n, 0), wars.contains(n)));
 		}
 
-		ServerPlayNetworking.send(player, new PersonalSyncPayload(list, WarsDuties.of(player.getUUID())));
+		ServerPlayNetworking.send(player, new PersonalSyncPayload(list, WarsDuties.of(player.getUUID()), WarsRevolts.conspiracy(player.getUUID())));
 	}
 
 	private static void load(MinecraftServer server) {

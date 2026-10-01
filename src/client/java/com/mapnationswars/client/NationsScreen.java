@@ -311,9 +311,10 @@ public class NationsScreen extends PagedScreen {
 
 		// coups (stage 7)
 		if (n.isMember(me) && !n.leader.equals(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.OFFICER) {
-			int pct = (int) Math.round(com.mapnationswars.nation.Charter.coupChance(n, me, this.averageHappiness(n), !n.aiRuled()) * 100);
-			lines.addAll(this.wrap("Coup: needs " + com.mapnationswars.nation.Charter.COUP_MERIT + " merit and "
-					+ com.mapnationswars.nation.Charter.COUP_COST + " emeralds for bribes. Chance ~" + pct + "% (higher when the people are unhappy). Failing means exile.", this.innerW()));
+			int plot = ClientPersonal.conspiracy();
+			int pct = (int) Math.round(com.mapnationswars.nation.Charter.coupChance(n, me, this.averageHappiness(n), !n.aiRuled(), plot) * 100);
+			lines.addAll(this.wrap("Coup: conspiracy " + plot + "% (" + com.mapnationswars.nation.Charter.COUP_READY + "% to launch), chance ~" + pct
+					+ "%. Build it in the You tab (Elections & coups).", this.innerW()));
 		}
 
 		if (n.ai && com.mapnationswars.nation.Ranks.hasElections(n.ideology)) {
@@ -397,19 +398,8 @@ public class NationsScreen extends PagedScreen {
 				}
 			}
 
-			// coup (stage 7): click twice to be sure
-			if (!n.leader.equals(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.OFFICER) {
-				list.add(new ButtonSpec(this.coupArmed ? "\u265B Really? Click again!" : "\u265B Attempt a coup", 130, b -> {
-					if (this.coupArmed) {
-						this.coupArmed = false;
-						this.send(NationActionPayload.simple(NationActionPayload.COUP, ""));
-					} else {
-						this.coupArmed = true;
-					}
-
-					this.rebuildWidgets();
-				}));
-			}
+			// elections, campaigns, votes and coups live on one page in the You tab
+			list.add(new ButtonSpec("\u2611 Elections & coups", 120, b -> this.minecraft.gui.setScreen(CareerScreen.powerPage())));
 		} else if (mine == null) {
 			if (n.hasRequest(me)) {
 				list.add(new ButtonSpec("Cancel request", 120,

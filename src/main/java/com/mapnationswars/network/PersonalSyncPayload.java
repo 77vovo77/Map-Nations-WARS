@@ -13,7 +13,7 @@ import com.mapnationswars.nation.DutyData;
 import com.mapnationswars.nation.NationData;
 
 /** Server -> one player: what each nation thinks of them, their personal wars and their duties (1.9). */
-public record PersonalSyncPayload(List<Standing> standings, List<DutyData> duties) implements CustomPacketPayload {
+public record PersonalSyncPayload(List<Standing> standings, List<DutyData> duties, int conspiracy) implements CustomPacketPayload {
 	/** opinion = -100 .. 100; war = a personal war with that nation */
 	public record Standing(UUID nation, int opinion, boolean war) {
 	}
@@ -38,6 +38,8 @@ public record PersonalSyncPayload(List<Standing> standings, List<DutyData> dutie
 		for (DutyData d : this.duties) {
 			d.write(buf);
 		}
+
+		buf.writeVarInt(this.conspiracy);
 	}
 
 	private static PersonalSyncPayload read(RegistryFriendlyByteBuf buf) {
@@ -55,7 +57,7 @@ public record PersonalSyncPayload(List<Standing> standings, List<DutyData> dutie
 			duties.add(DutyData.read(buf));
 		}
 
-		return new PersonalSyncPayload(standings, duties);
+		return new PersonalSyncPayload(standings, duties, buf.readVarInt());
 	}
 
 	@Override

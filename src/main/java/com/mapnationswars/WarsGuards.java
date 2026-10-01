@@ -203,6 +203,11 @@ public final class WarsGuards {
 			return;
 		}
 
+		if (n.faction == Faction.UNDEAD) {
+			mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.CHAINMAIL_HELMET));
+			mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.HEAD, 0f);
+		}
+
 		mob.setCustomName(Component.literal(WarsWar.soldierPrefix() + "Guard of " + p.name).withColor(n.color));
 		mob.setCustomNameVisible(true);
 		mob.setTarget(target);

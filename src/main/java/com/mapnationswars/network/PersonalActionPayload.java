@@ -14,6 +14,8 @@ public record PersonalActionPayload(int action, String target) implements Custom
 	public static final int STIR_UNREST = 1;
 	/** target = "" : ask for new duties now */
 	public static final int NEW_DUTY = 2;
+	/** target = province id: raise the banner of revolt there and lead it (2.1) */
+	public static final int LEAD_REVOLT = 3;
 
 	public static final CustomPacketPayload.Type<PersonalActionPayload> TYPE =
 			new CustomPacketPayload.Type<>(MapNationsMod.id("personal_action"));

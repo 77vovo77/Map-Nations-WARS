@@ -152,6 +152,20 @@ public class LettersScreen extends PagedScreen {
 		NationData mine = ClientNations.myNation();
 		this.contentHeight = 200;
 
+		// reply: write back to the other nation
+		if (l != null) {
+			boolean incoming = mine != null && mine.id.equals(l.to) && !(l.personal && l.from.equals(this.me()));
+			UUID other = incoming ? (l.personal ? null : l.from) : l.to;
+
+			if (other != null && ClientNations.get(other) != null) {
+				this.addRenderableWidget(Button.builder(Component.literal("\u21A9 Reply"), b -> {
+					draftTo = other;
+					draftType = LetterData.Type.MESSAGE;
+					this.show(View.WRITE, null);
+				}).pos(this.right() - 8 - 70, this.bottom() - 30).size(70, 20).build());
+			}
+		}
+
 		if (l != null && mine != null && l.status == LetterData.Status.PENDING && mine.id.equals(l.to) && this.canWrite()
 				&& !(l.personal && l.from.equals(this.me()))) {
 			int y = this.bottom() - 30;
@@ -197,9 +211,7 @@ public class LettersScreen extends PagedScreen {
 			y += this.modeRow();
 		}
 
-		// recipient: arrows to go through the nations
-		this.addScrolled(Button.builder(Component.literal("◀"), b -> this.cycleTo(-1)).pos(x, y).size(20, 20).build());
-		this.addScrolled(Button.builder(Component.literal("▶"), b -> this.cycleTo(1)).pos(x + this.innerW() - 20, y).size(20, 20).build());
+		// the recipient is picked in the list on the left (2.1)
 		y += 34;
 
 		// kind of letter
@@ -226,6 +238,20 @@ public class LettersScreen extends PagedScreen {
 			amount.setResponder(text -> draftAmount = text.replaceAll("[^0-9]", ""));
 			amount.visible = amount.getY() >= this.viewTop() && amount.getY() + 18 <= this.viewBottom();
 			this.addRenderableWidget(amount);
+			int px = x + 136;
+
+			for (int preset : new int[] {10, 25, 50, 100}) {
+				if (px + 30 > x + this.innerW()) {
+					break;
+				}
+
+				this.addScrolled(Button.builder(Component.literal(String.valueOf(preset)), b -> {
+					draftAmount = String.valueOf(preset);
+					this.rebuildWidgets();
+				}).pos(px, y - 5).size(30, 20).build());
+				px += 32;
+			}
+
 			y += 22;
 		}
 
@@ -236,7 +262,20 @@ public class LettersScreen extends PagedScreen {
 		text.setResponder(t -> draftText = t);
 		text.visible = text.getY() >= this.viewTop() && text.getY() + 18 <= this.viewBottom();
 		this.addRenderableWidget(text);
-		y += 30;
+		y += 22;
+
+		// ready-made words: click one to use it
+		List<ButtonSpec> phrases = new ArrayList<>();
+
+		for (String phrase : phrases(draftType)) {
+			String label = this.fit("\u201C" + phrase + "\u201D", this.innerW() - 8);
+			phrases.add(new ButtonSpec(label, Math.min(this.innerW(), this.font.width(label) + 12), b -> {
+				draftText = phrase;
+				this.rebuildWidgets();
+			}));
+		}
+
+		y += this.flowButtons(phrases, x, y, true) + 4;
 
 		this.addScrolled(Button.builder(Component.literal(draftType == LetterData.Type.WAR ? "⚔ Declare war" : "✉ Send letter"), b -> {
 			boolean personalLetter = this.personal();
@@ -255,6 +294,21 @@ public class LettersScreen extends PagedScreen {
 		}).pos(x, y).size(120, 20).build());
 		this.addScrolled(Button.builder(Component.literal("Cancel"), b -> this.show(View.RELATIONS, null)).pos(x + 124, y).size(70, 20).build());
 		this.contentHeight = y + 28 - this.writeTop();
+	}
+
+	/** Words that fit each kind of letter (one click fills them in). */
+	private static String[] phrases(LetterData.Type t) {
+		return switch (t) {
+			case GIFT -> new String[] {"A gift, as a token of friendship.", "For your people."};
+			case TRADE -> new String[] {"Let our merchants trade.", "Gold for grain, grain for gold."};
+			case ALLIANCE -> new String[] {"Let us stand together against any enemy.", "Our peoples are friends."};
+			case PEACE -> new String[] {"Enough blood. Let there be peace.", "We ask for peace."};
+			case TRIBUTE -> new String[] {"Pay, or face our armies.", "A small price for your safety."};
+			case WAR -> new String[] {"Your days are numbered.", "For our people - war!"};
+			case JOIN -> new String[] {"I wish to serve your nation.", "Take me in, I will work hard."};
+			case PROMOTION -> new String[] {"I have served well. I ask for a higher rank.", "Give me more duties and more trust."};
+			default -> new String[] {"Greetings, friend.", "We wish you peace and prosperity.", "Beware: we are watching you."};
+		};
 	}
 
 	private void cycleTo(int dir) {
@@ -286,7 +340,7 @@ public class LettersScreen extends PagedScreen {
 			this.rebuildWidgets();
 		}
 
-		this.drawFrame(graphics, "Letters");
+		this.drawFrame(graphics, this.view == View.WRITE ? "Write to:" : "Letters");
 		this.drawLetterList(graphics, mouseX, mouseY);
 		graphics.enableScissor(this.panelX - 4, this.viewTop(), this.right(), this.viewBottom());
 
@@ -312,7 +366,34 @@ public class LettersScreen extends PagedScreen {
 		};
 	}
 
+	/** While writing: the list on the left is everyone you can write to (click one). */
+	private void drawRecipients(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		List<NationData> list = this.others();
+		int visible = (this.listBottom - this.listY) / ROW_H;
+		this.listScroll = Math.max(0, Math.min(this.listScroll, list.size() - visible));
+		graphics.enableScissor(this.listX, this.listY, this.listX + this.listW, this.listBottom);
+
+		for (int i = 0; i < list.size() - this.listScroll && i <= visible; i++) {
+			NationData n = list.get(i + this.listScroll);
+			int y = this.listY + i * ROW_H;
+			boolean hover = mouseX >= this.listX && mouseX < this.listX + this.listW && mouseY >= y && mouseY < y + ROW_H && mouseY < this.listBottom;
+			this.drawListRow(graphics, y, n.color, n.id.equals(draftTo), hover);
+			graphics.text(this.font, this.fit(n.name, this.listW - 14), this.listX + 8, y + 3, 0xFF000000 | n.color);
+			int o = this.personal() ? ClientPersonal.standing(n.id) : (ClientNations.myNation() != null ? ClientDiplomacy.opinion(n, ClientNations.myNation()) : 0);
+			String sub = (o > 0 ? "+" : "") + o + " " + Relations.label(o) + (n.aiRuled() ? "" : " \u00B7 player");
+			graphics.text(this.font, this.fit(sub, this.listW - 14), this.listX + 8, y + 13, 0xFF000000 | Relations.color(o));
+		}
+
+		graphics.disableScissor();
+		this.drawListScrollBar(graphics, list.size(), visible);
+	}
+
 	private void drawLetterList(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		if (this.view == View.WRITE) {
+			this.drawRecipients(graphics, mouseX, mouseY);
+			return;
+		}
+
 		NationData mine = ClientNations.myNation();
 		List<LetterData> letters = ClientDiplomacy.letters();
 
@@ -486,7 +567,7 @@ public class LettersScreen extends PagedScreen {
 		NationData to = ClientNations.get(draftTo);
 		int x = this.panelX;
 		int y = this.writeTop() + this.modeRow();
-		graphics.text(this.font, this.personal() ? "To (from you):" : "To (from " + (mine != null ? mine.name : "your nation") + "):", x, y, 0xFFFFD060);
+		graphics.text(this.font, (this.personal() ? "From you" : "From " + (mine != null ? mine.name : "your nation")) + "  \u2192  to (pick on the left):", x, y, 0xFFFFD060);
 
 		if (to != null) {
 			int cx = x + this.innerW() / 2;
@@ -542,6 +623,18 @@ public class LettersScreen extends PagedScreen {
 		double mx = click.x();
 		double my = click.y();
 
+		if (mx >= this.listX && mx < this.listX + this.listW && my >= this.listY && my < this.listBottom && this.view == View.WRITE) {
+			int index = (int) ((my - this.listY) / ROW_H) + this.listScroll;
+			List<NationData> list = this.others();
+
+			if (index >= 0 && index < list.size()) {
+				draftTo = list.get(index).id;
+				this.rebuildWidgets();
+			}
+
+			return true;
+		}
+
 		if (mx >= this.listX && mx < this.listX + this.listW && my >= this.listY && my < this.listBottom) {
 			int index = (int) ((my - this.listY) / ROW_H) + this.listScroll;
 			List<LetterData> letters = ClientDiplomacy.letters();
@@ -558,6 +651,6 @@ public class LettersScreen extends PagedScreen {
 
 	@Override
 	protected int listCount() {
-		return ClientDiplomacy.letters().size();
+		return this.view == View.WRITE ? this.others().size() : ClientDiplomacy.letters().size();
 	}
 }

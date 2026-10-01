@@ -401,55 +401,111 @@ public class CareerScreen extends PagedScreen {
 		boolean leader = mine.leader.equals(me);
 		int rank = mine.rankOf(me);
 		this.text("Ruler: " + mine.leaderName() + " (" + mine.ideology.leaderTitle + ")" + (leader ? " - that's you!" : ""), 0xFFFFFFFF);
-		this.heading("Elections");
+
+		// ---- elections
+		this.heading("\u2611 Elections");
 
 		if (Ranks.hasElections(mine.ideology)) {
-			long day = this.minecraft.level != null ? this.minecraft.level.getGameTime() / 24000 : 0;
-			this.text("Every " + Ranks.ELECTION_DAYS + " days the villages vote. Next: " + (mine.nextElection == 0 ? "soon" : "in " + Math.max(0, mine.nextElection - day) + " days")
-					+ ". Villages vote for merit, the ruler for happy villages.", 0xFFBBBBBB);
+			long now = this.minecraft.level != null ? this.minecraft.level.getGameTime() : 0;
+			long ticksLeft = Math.max(0, mine.nextElection * 24000 - now);
+			String when = mine.nextElection == 0 ? "soon" : "in " + ticksLeft / 24000 + " days " + (ticksLeft % 24000) / 1200 + " min";
+			this.text("Next election " + when + ". Every village gives its villagers' votes to the candidate it likes most "
+					+ "(merit + campaign); every member's own vote counts 3.", 0xFFBBBBBB);
 
-			if (!mine.lastElection.isEmpty()) {
-				this.text("Last time: " + mine.lastElection, 0xFF9AA0A6);
+			// the candidates, with their merit and campaign
+			if (mine.candidates.isEmpty()) {
+				this.text("No candidates yet. Officers and up can run.", 0xFF888888);
 			}
+
+			List<ButtonSpec> voteButtons = new ArrayList<>();
+			UUID myVote = mine.votes.get(me);
+
+			for (UUID c : mine.candidates) {
+				NationData.Member m = mine.member(c);
+
+				if (m == null) {
+					continue;
+				}
+
+				int camp = mine.campaign.getOrDefault(c, 0);
+				this.text((c.equals(myVote) ? "\u2714 " : "\u2022 ") + m.name() + "   merit " + mine.merit.getOrDefault(c, 0) + "   campaign " + camp,
+						c.equals(me) ? 0xFFFFE0A0 : 0xFFFFFFFF);
+				voteButtons.add(this.button("Vote " + this.fit(m.name(), 70), () -> this.nationAction(NationActionPayload.VOTE, c.toString())));
+			}
+
+			if (!mine.candidates.isEmpty()) {
+				voteButtons.add(this.button("Vote for the crown", () -> this.nationAction(NationActionPayload.VOTE, "")));
+				this.buttons(voteButtons);
+			}
+
+			List<ButtonSpec> run = new ArrayList<>();
 
 			if (leader || rank >= Ranks.OFFICER) {
-				this.buttons(List.of(mine.candidates.contains(me)
-						? this.button("Withdraw candidacy", () -> this.nationAction(NationActionPayload.WITHDRAW_CANDIDACY, ""))
-						: this.button("★ Run for " + mine.ideology.leaderTitle, () -> this.nationAction(NationActionPayload.RUN_FOR_OFFICE, ""))));
+				if (mine.candidates.contains(me)) {
+					run.add(this.button("\uD83D\uDCE3 Campaign (10 emeralds)", () -> this.nationAction(NationActionPayload.CAMPAIGN, "")));
+					run.add(this.button("Withdraw", () -> this.nationAction(NationActionPayload.WITHDRAW_CANDIDACY, "")));
+				} else {
+					run.add(this.button("\u2605 Run for " + mine.ideology.leaderTitle, () -> this.nationAction(NationActionPayload.RUN_FOR_OFFICE, "")));
+				}
+
+				this.buttons(run);
 			} else {
-				this.check(false, "Officers and up can run (you need " + Ranks.MERIT[Ranks.OFFICER] + " merit)");
+				this.check(false, "Become an Officer to run (" + Ranks.MERIT[Ranks.OFFICER] + " merit) - you can still vote");
+			}
+
+			if (!mine.lastResults.isEmpty()) {
+				this.text("Last election:", 0xFF9AA0A6);
+				int total = 0;
+
+				for (int v : mine.lastResults.values()) {
+					total += v;
+				}
+
+				for (Map.Entry<String, Integer> e : mine.lastResults.entrySet()) {
+					this.bar(this.fit(e.getKey(), 90), e.getValue() + " votes", e.getValue() / (double) Math.max(1, total), 0xFF4FA3FF);
+				}
 			}
 		} else {
-			this.text(mine.ideology.displayName + " has no elections. Power is taken - by a coup.", 0xFFBBBBBB);
+			this.text(mine.ideology.displayName + " holds no elections. Power is taken - by a coup.", 0xFFBBBBBB);
 		}
 
-		this.heading("Coup");
+		// ---- coup
+		this.heading("\u265B Coup");
 
 		if (leader) {
-			this.text("You rule. Keep your villages happy - if they stay miserable for 3 days, the people overthrow you.", 0xFFBBBBBB);
+			this.text("You rule. Keep your villages happy - if they stay miserable for 3 days, the people overthrow you. "
+					+ "Watch for rumours of plots.", 0xFFBBBBBB);
 			return;
 		}
 
-		int merit = mine.merit.getOrDefault(me, 0);
-		int carried = this.carried();
+		int plot = ClientPersonal.conspiracy();
 		double avg = this.averageHappiness(mine);
-		int pct = (int) Math.round(Charter.coupChance(mine, me, avg, !mine.aiRuled()) * 100);
+		int pct = (int) Math.round(Charter.coupChance(mine, me, avg, !mine.aiRuled(), plot) * 100);
+		this.text("A coup is a plot you build up, then launch. The bigger the conspiracy (and the unhappier the people), the likelier it works. "
+				+ "Failing means exile.", 0xFFBBBBBB);
+		this.bar("Conspiracy", plot + "%  (" + Charter.COUP_READY + "% to launch)", plot / 100.0, plot >= Charter.COUP_READY ? 0xFFFF7040 : 0xFFB06030);
+		this.text("Chance if you launch now: ~" + pct + "%   (villages' mood " + (int) avg + "% - unhappy villages feed your plot every day)", 0xFFFFC070);
 		this.check(rank >= Ranks.OFFICER, "Be an Officer or Minister");
-		this.check(merit >= Charter.COUP_MERIT, "Merit " + merit + "/" + Charter.COUP_MERIT);
-		this.check(carried >= Charter.COUP_COST, "Carry " + Charter.COUP_COST + " emeralds for bribes (you carry " + carried + ")");
-		this.text("Chance now: ~" + pct + "% (higher when the villages are unhappy: now " + (int) avg + "%). Failing means exile.", 0xFFFFC070);
 
-		if (rank >= Ranks.OFFICER && merit >= Charter.COUP_MERIT && carried >= Charter.COUP_COST) {
-			this.buttons(List.of(this.button(this.coupArmed ? "♛ Really? Click again!" : "♛ Attempt a coup", () -> {
-				if (this.coupArmed) {
-					this.coupArmed = false;
-					this.nationAction(NationActionPayload.COUP, "");
-				} else {
-					this.coupArmed = true;
-				}
+		if (rank >= Ranks.OFFICER) {
+			List<ButtonSpec> plotButtons = new ArrayList<>();
+			plotButtons.add(this.button("\u2666 Bribe an official (" + Charter.BRIBE_COST + ")", () -> this.nationAction(NationActionPayload.PLOT, "BRIBE")));
+			plotButtons.add(this.button("\u2694 Win the army", () -> this.nationAction(NationActionPayload.PLOT, "ARMY")));
+			this.buttons(plotButtons);
+			this.text("Bribe: +15, but 1 in 7 talk (the plot halves, -30 merit). Army: +20 once a day - you must have commanded one of the nation's armies (or be a Minister).", 0xFF888888);
 
-				this.rebuildWidgets();
-			})));
+			if (plot >= Charter.COUP_READY) {
+				this.buttons(List.of(this.button(this.coupArmed ? "\u265B Really? Click again!" : "\u265B LAUNCH THE COUP", () -> {
+					if (this.coupArmed) {
+						this.coupArmed = false;
+						this.nationAction(NationActionPayload.COUP, "");
+					} else {
+						this.coupArmed = true;
+					}
+
+					this.rebuildWidgets();
+				})));
+			}
 		}
 	}
 
@@ -475,28 +531,42 @@ public class CareerScreen extends PagedScreen {
 
 	private void revolt() {
 		this.title("Revolts", 0xFFFF8A65);
-		this.text("Every village has unrest. Hunger, misery, foreign rulers, long wars and nations that are too big raise it; "
-				+ "at 100% the village rises up and declares itself free.", 0xFFBBBBBB);
-		this.heading("How to start one");
-		this.text("1. Pick a village of another nation (not a capital).", 0xFFDDDDDD);
-		this.text("2. Make its people back you: do duties for it, give its mayor emeralds, kill monsters there. You need 20 support.", 0xFFDDDDDD);
-		this.text("3. Talk to its mayor and press 🔥 Stir unrest (10 emeralds, +12 unrest). Their guards may catch you!", 0xFFDDDDDD);
-		this.text("4. At 100% it rises up. If you have no nation and 60+ support, YOU lead the new nation.", 0xFFDDDDDD);
+		this.text("Turn a village against its rulers and lead it to freedom - that founds your own nation, for free.", 0xFFBBBBBB);
+		this.heading("The road (for players without a nation)");
+		this.text("1. Win the people: duties for the village, emeralds for its mayor, monsters killed there.  (support)", 0xFFDDDDDD);
+		this.text("2. At 20 support: talk to its mayor - \uD83D\uDD25 Stir unrest (10 emeralds, +12 unrest each time).", 0xFFDDDDDD);
+		this.text("3. At 60 support and 70% unrest: talk to its mayor - \u2691 Lead the revolt. The village rises at once and YOU rule it, with a rebel army.", 0xFFDDDDDD);
+		this.text("Capitals never rise. Their guards may catch you stirring - then they hate you.", 0xFF888888);
 		this.heading("Villages that know you");
 		Map<UUID, Integer> support = ClientRevolts.all();
+		List<ButtonSpec> show = new ArrayList<>();
 
 		if (support.isEmpty()) {
-			this.text("None yet. Do duties for a village (Duties) when you have no nation.", 0xFF888888);
+			this.text("None yet. Do duties for a village (Duties) while you have no nation.", 0xFF888888);
 		}
 
 		for (Map.Entry<UUID, Integer> e : support.entrySet()) {
 			ProvinceData p = ClientMarkers.province(e.getKey());
 
-			if (p != null) {
-				this.bar(this.fit(p.name, 90), "support " + e.getValue() + ", unrest " + p.unrest + "%", p.unrest / 100.0, 0xFFFF7040);
+			if (p == null || p.nation == null) {
+				continue;
 			}
+
+			int s = e.getValue();
+			String step = p.capital ? "a capital - won't rise"
+					: s < 20 ? "win " + (20 - s) + " more support, then stir"
+					: p.unrest >= 70 && s >= 60 ? "READY: go and lead the revolt!"
+					: s < 60 ? "stir unrest; " + (60 - s) + " more support to lead"
+					: "stir unrest to 70% (" + p.unrest + "% now)";
+			this.text(p.name + ":  support " + s + "   unrest " + p.unrest + "%", 0xFFFFFFFF);
+			this.bar("  next", step, Math.min(1, p.unrest / 70.0) * Math.min(1, s / 60.0), step.startsWith("READY") ? 0xFF7CFF7C : 0xFFFF7040);
+			show.add(this.button("Map: " + this.fit(p.name, 70), () -> {
+				MapScreen.focus(p.x, p.z);
+				this.open(new MapScreen(false));
+			}));
 		}
 
+		this.buttons(show);
 		this.heading("Most restless villages");
 		List<ProvinceData> restless = new ArrayList<>();
 
@@ -507,23 +577,16 @@ public class CareerScreen extends PagedScreen {
 		}
 
 		restless.sort((a, b) -> Integer.compare(b.unrest, a.unrest));
-		List<ButtonSpec> show = new ArrayList<>();
 
 		for (int i = 0; i < Math.min(5, restless.size()); i++) {
 			ProvinceData p = restless.get(i);
 			NationData n = ClientNations.get(p.nation);
 			this.bar(this.fit(p.name, 90), p.unrest + "% (" + (n != null ? this.fit(n.name, 80) : "?") + ")", p.unrest / 100.0, 0xFFFF7040);
-			show.add(this.button("Map: " + this.fit(p.name, 70), () -> {
-				MapScreen.focus(p.x, p.z);
-				this.open(new MapScreen(false));
-			}));
 		}
 
 		if (restless.isEmpty()) {
 			this.text("All quiet.", 0xFF888888);
 		}
-
-		this.buttons(show);
 	}
 
 	private void found() {
@@ -583,6 +646,12 @@ public class CareerScreen extends PagedScreen {
 				this.button("☘ Ask for peace", () -> this.open(new LettersScreen(null, LetterData.Type.PEACE))),
 				this.button("✉ Gift (win them over)", () -> this.open(new LettersScreen(null, LetterData.Type.GIFT)))));
 		this.text("Peace costs at least 30 emeralds (sent with the letter).", 0xFF9AA0A6);
+	}
+
+	/** Opens the You tab on the elections & coups page. */
+	static CareerScreen powerPage() {
+		section = Section.POWER;
+		return new CareerScreen();
 	}
 
 	/** Opens the You tab on the treasury page. */

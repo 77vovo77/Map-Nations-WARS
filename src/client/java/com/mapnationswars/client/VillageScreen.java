@@ -170,10 +170,13 @@ public class VillageScreen extends Screen {
 			}
 
 			if (p.nation != null && !p.capital) {
-				Button stir = this.addRenderableWidget(Button.builder(Component.literal("\uD83D\uDD25 Stir unrest (10)"), b -> {
+				// ready to rise: lead it; otherwise stir it up
+				boolean ready = noNation && p.unrest >= 70 && ClientRevolts.support(p.id) >= 60;
+				int action = ready ? com.mapnationswars.network.PersonalActionPayload.LEAD_REVOLT : com.mapnationswars.network.PersonalActionPayload.STIR_UNREST;
+				Button stir = this.addRenderableWidget(Button.builder(Component.literal(ready ? "\u2691 LEAD THE REVOLT" : "\uD83D\uDD25 Stir unrest (10)")
+						.withColor(ready ? 0xFF7C7C : 0xFFFFFF), b -> {
 					if (ClientPlayNetworking.canSend(com.mapnationswars.network.PersonalActionPayload.TYPE)) {
-						ClientPlayNetworking.send(new com.mapnationswars.network.PersonalActionPayload(
-								com.mapnationswars.network.PersonalActionPayload.STIR_UNREST, this.provinceId.toString()));
+						ClientPlayNetworking.send(new com.mapnationswars.network.PersonalActionPayload(action, this.provinceId.toString()));
 					}
 				}).pos(sx, my).size(noNation ? half : w - 24, 20).build());
 				stir.active = ClientRevolts.support(p.id) >= 20;
@@ -360,8 +363,9 @@ public class VillageScreen extends Screen {
 				int support = ClientRevolts.support(p.id);
 				graphics.setTooltipForNextFrame(this.font, Component.literal(support < 20
 						? "Nobody listens to you yet (support " + support + "/20). Do duties for " + p.name + ", give emeralds, kill monsters here."
-						: "Costs 10 emeralds: +12 unrest. At 100% the village rises up" + (noNation && support >= 60 ? " and makes YOU its leader" : "")
-								+ ". Their guards may catch you!"), mouseX, mouseY);
+						: noNation && p.unrest >= 70 && support >= 60 ? "The village is ready! Raise the banner: it rises at once and YOU rule it, with a rebel army."
+						: "Costs 10 emeralds: +12 unrest. " + (noNation ? "With 60 support and 70% unrest you can lead the revolt yourself (now: "
+								+ support + " support, " + p.unrest + "% unrest)." : "At 100% the village rises up.") + " Their guards may catch you!"), mouseX, mouseY);
 			} else if (noNation && mouseX >= l + 12 && mouseX < l + 12 + half && mouseY >= fy && mouseY < fy + 20) {
 				String problem = this.charterProblem(p);
 				graphics.setTooltipForNextFrame(this.font, Component.literal(problem != null ? problem

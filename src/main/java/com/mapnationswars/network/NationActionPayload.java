@@ -45,6 +45,12 @@ public record NationActionPayload(int action, String target, String name, int co
 	public static final int SET_TAX = 21;
 	/** 2.0: ideology = FESTIVAL or GRAIN (spend from the treasury) */
 	public static final int TREASURY = 22;
+	/** 2.1: a candidate spends 10 emeralds on their campaign */
+	public static final int CAMPAIGN = 23;
+	/** 2.1: target = the candidate a member votes for */
+	public static final int VOTE = 24;
+	/** 2.1: ideology = BRIBE or ARMY: build up a conspiracy for a coup */
+	public static final int PLOT = 25;
 
 	public static final CustomPacketPayload.Type<NationActionPayload> TYPE =
 			new CustomPacketPayload.Type<>(MapNationsMod.id("nation_action"));

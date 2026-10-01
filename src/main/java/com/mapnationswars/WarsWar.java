@@ -1211,6 +1211,29 @@ public final class WarsWar {
 		return null;
 	}
 
+	/** Spawns any vanilla entity (a boat...) by its entity type constant name. Tracked like the war's mobs. */
+	static Entity spawnEntity(ServerLevel level, String typeConstant, int x, int y, int z) {
+		EntityType<?> type = entityType(typeConstant);
+
+		if (type == null) {
+			return null;
+		}
+
+		try {
+			Entity e = type.spawn(level, new BlockPos(x, y, z), EntitySpawnReason.EVENT);
+
+			if (e != null) {
+				LIVE.add(e.getUUID());
+				e.setCustomName(Component.literal(SOLDIER_PREFIX + "boat"));
+			}
+
+			return e;
+		} catch (Exception e) {
+			MapNationsMod.LOGGER.warn("Map Nations WARS: could not spawn {}", typeConstant, e);
+			return null;
+		}
+	}
+
 	/** Mobs with this name prefix belong to the war; left-over ones are removed when their chunk loads again. */
 	static String soldierPrefix() {
 		return SOLDIER_PREFIX;

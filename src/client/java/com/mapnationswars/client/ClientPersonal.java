@@ -13,6 +13,7 @@ public final class ClientPersonal {
 	private static final Map<UUID, PersonalSyncPayload.Standing> STANDING = new HashMap<>();
 	private static List<DutyData> duties = List.of();
 	private static int version = 0;
+	private static int conspiracy = 0;
 
 	private ClientPersonal() {
 	}
@@ -25,6 +26,7 @@ public final class ClientPersonal {
 		}
 
 		duties = payload.duties();
+		conspiracy = payload.conspiracy();
 		version++;
 	}
 
@@ -59,5 +61,10 @@ public final class ClientPersonal {
 
 	public static List<DutyData> duties() {
 		return duties;
+	}
+
+	/** How far your plot for a coup got (0..100). */
+	public static int conspiracy() {
+		return conspiracy;
 	}
 }

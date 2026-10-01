@@ -194,7 +194,9 @@ public final class WarsPolitics {
 			double bestScore = n.aiRuled() ? avgHappiness / 5.0 + random.nextDouble() * 10 : -1;
 
 			for (UUID c : running) {
-				double score = n.merit.getOrDefault(c, 0) / 10.0 + random.nextDouble() * 10 + (c.equals(n.leader) ? avgHappiness / 10.0 : 0);
+				// merit, the campaign (speeches, feasts) and, for the one in power, how happy the villages are
+				double score = n.merit.getOrDefault(c, 0) / 10.0 + n.campaign.getOrDefault(c, 0) / 8.0 + random.nextDouble() * 10
+						+ (c.equals(n.leader) ? avgHappiness / 10.0 : 0);
 
 				if (score > bestScore) {
 					bestScore = score;
@@ -204,6 +206,21 @@ public final class WarsPolitics {
 
 			votes.merge(best, Math.max(1, p.population), Integer::sum);
 		}
+
+		// the members vote too (each vote is worth 3)
+		for (Map.Entry<UUID, UUID> v : n.votes.entrySet()) {
+			if (n.isMember(v.getKey()) && (running.contains(v.getValue()) || v.getValue().equals(ai))) {
+				votes.merge(v.getValue(), 3, Integer::sum);
+			}
+		}
+
+		// the result, for everyone to see
+		n.lastResults.clear();
+		votes.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).forEach(e -> {
+			NationData.Member m = n.member(e.getKey());
+			String name = e.getKey().equals(ai) ? n.rulerName + " (the crown)" : m != null ? m.name() : "?";
+			n.lastResults.put(name, e.getValue());
+		});
 
 		UUID winner = ai;
 		int most = -1;
@@ -237,10 +254,70 @@ public final class WarsPolitics {
 		}
 
 		n.candidates.clear();
+		n.campaign.clear();
+		n.votes.clear();
+		WarsDiplomacy.news(server, "\u2611 Election in " + n.name + ": " + n.lastElection);
+	}
 
-		for (NationData.Member m : n.members) {
-			ServerNations.notifyPlayer(server, m.id(), "Election in " + n.name + ": " + n.lastElection);
+	// ---------------------------------------------------------------- campaigning and voting (2.1)
+
+	private static final Map<UUID, Long> LAST_CAMPAIGN = new HashMap<>();
+
+	/** A candidate spends 10 emeralds they carry on their campaign: +10 campaign points (once a minute). */
+	static void campaign(MinecraftServer server, ServerPlayer player) {
+		NationData n = ServerNations.nationOf(player.getUUID());
+
+		if (n == null || !n.candidates.contains(player.getUUID())) {
+			ServerNations.status(player, "Run for office first, then campaign.", false);
+			return;
 		}
+
+		long now = server.overworld().getGameTime();
+
+		if (now - LAST_CAMPAIGN.getOrDefault(player.getUUID(), -10000L) < 1200) {
+			ServerNations.status(player, "Your speech still echoes. Campaign again in a minute.", false);
+			return;
+		}
+
+		if (WarsItems.takeEmeralds(player, 10) < 10) {
+			ServerNations.status(player, "A campaign costs 10 emeralds (posters, speeches, a feast). You need to carry them.", false);
+			return;
+		}
+
+		LAST_CAMPAIGN.put(player.getUUID(), now);
+		int points = n.campaign.merge(player.getUUID(), 10, Integer::sum);
+		ServerNations.status(player, "You campaign across " + n.name + "! Campaign: " + points + " (every 8 points count like 10 merit with the voters).", true);
+		ServerNations.saveNow(server);
+		ServerNations.broadcast(server);
+	}
+
+	/** A member votes for a candidate (or for the crown: an empty / unknown target). */
+	static void vote(MinecraftServer server, ServerPlayer player, String target) {
+		NationData n = ServerNations.nationOf(player.getUUID());
+
+		if (n == null || !Ranks.hasElections(n.ideology)) {
+			ServerNations.status(player, "Your nation holds no elections.", false);
+			return;
+		}
+
+		UUID choice;
+
+		try {
+			choice = UUID.fromString(target);
+		} catch (IllegalArgumentException e) {
+			choice = Ranks.nobody();
+		}
+
+		if (!choice.equals(Ranks.nobody()) && !n.candidates.contains(choice)) {
+			ServerNations.status(player, "That one isn't running.", false);
+			return;
+		}
+
+		n.votes.put(player.getUUID(), choice);
+		NationData.Member m = n.member(choice);
+		ServerNations.status(player, "You vote for " + (m != null ? m.name() : n.rulerName + " (the crown)") + ".", true);
+		ServerNations.saveNow(server);
+		ServerNations.broadcast(server);
 	}
 
 	// ---------------------------------------------------------------- collecting salary, the treasury
