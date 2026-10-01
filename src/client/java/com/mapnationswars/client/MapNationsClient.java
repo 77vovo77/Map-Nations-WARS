@@ -65,6 +65,8 @@ public class MapNationsClient implements ClientModInitializer {
 				context.client().execute(() -> ClientDiplomacy.apply(payload)));
 		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.WarSyncPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> ClientWar.apply(payload)));
+		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.SupportSyncPayload.TYPE, (payload, context) ->
+				context.client().execute(() -> ClientRevolts.apply(payload)));
 
 		// talked to a mayor: open the village page
 		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.OpenVillagePayload.TYPE, (payload, context) ->
@@ -86,6 +88,7 @@ public class MapNationsClient implements ClientModInitializer {
 					MapData.onDisconnect();
 					ClientDiplomacy.clear();
 					ClientWar.clear();
+					ClientRevolts.clear();
 				}));
 	}
 }

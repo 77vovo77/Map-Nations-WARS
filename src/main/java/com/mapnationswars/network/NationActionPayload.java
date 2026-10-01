@@ -39,6 +39,8 @@ public record NationActionPayload(int action, String target, String name, int co
 	public static final int WITHDRAW_CANDIDACY = 18;
 	/** target = member, color = new rank (leader only) */
 	public static final int SET_RANK = 19;
+	/** Map Nations WARS stage 7: an Officer or Minister tries to seize power. */
+	public static final int COUP = 20;
 
 	public static final CustomPacketPayload.Type<NationActionPayload> TYPE =
 			new CustomPacketPayload.Type<>(MapNationsMod.id("nation_action"));

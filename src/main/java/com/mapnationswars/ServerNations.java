@@ -715,8 +715,12 @@ public final class ServerNations {
 
 		switch (a.action()) {
 			case NationActionPayload.CREATE -> {
-				if (true) {
-					status(player, "Founding your own nation will need a charter - coming in a later update. For now, explore the nations of the world.", false);
+				// Map Nations WARS: a nation is founded at a village whose people back you, with a charter
+				com.mapnationswars.nation.ProvinceData[] where = new com.mapnationswars.nation.ProvinceData[1];
+				String charter = WarsRevolts.charterProblem(player, where);
+
+				if (charter != null) {
+					status(player, charter, false);
 					return;
 				}
 
@@ -750,7 +754,8 @@ public final class ServerNations {
 
 				removeRequestsEverywhere(me);
 				NATIONS.put(n.id, n);
-				status(player, "The nation of " + n.name + " was founded!", true);
+				WarsRevolts.founded(server, player, n, where[0]);
+				status(player, "The nation of " + n.name + " was founded at " + where[0].name + "! Defend it.", true);
 				changed = true;
 			}
 
@@ -913,6 +918,11 @@ public final class ServerNations {
 				status(player, m.name() + " is now the " + mine.ideology.leaderTitle + " of " + mine.name + ".", true);
 				notifyPlayer(server, who, "You are now the " + mine.ideology.leaderTitle + " of " + mine.name + "!");
 				changed = true;
+			}
+
+			case NationActionPayload.COUP -> {
+				WarsRevolts.coup(server, player);
+				return;
 			}
 
 			case NationActionPayload.LEAVE -> {

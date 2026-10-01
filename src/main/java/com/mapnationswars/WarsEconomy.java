@@ -217,6 +217,7 @@ public final class WarsEconomy {
 
 		WarsPolitics.runDay(server, server.overworld().getGameTime() / DAY_TICKS);
 		WarsDiplomacy.runDay(server);
+		WarsRevolts.runDay(server);
 		WarsAI.runDay(server);
 		WarsWar.runDay(server);
 		WarsWar.broadcast(server);
@@ -291,6 +292,8 @@ public final class WarsEconomy {
 		p.funds += taken;
 		p.happiness = Math.min(100, p.happiness + Math.min(10, (taken + 1) / 2));
 		NationData owner = ServerNations.nation(p.nation);
+
+		WarsRevolts.addSupport(player, p, taken); // the people remember who helped them
 
 		if (owner != null && owner.isMember(player.getUUID())) {
 			WarsPolitics.addMerit(server, owner, player.getUUID(), taken); // helping your own villages is service too

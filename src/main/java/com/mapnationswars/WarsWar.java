@@ -839,6 +839,8 @@ public final class WarsWar {
 		String oldName = oldNation != null ? oldNation.name : "nobody";
 		p.happiness = Math.max(5, p.happiness - 30);
 		WarsAI.onCapture(newNation, p.nation);
+		p.conqueredDay = server.overworld().getGameTime() / WarsEconomy.DAY_TICKS;
+		p.unrest = Math.max(p.unrest, 35); // nobody likes new masters
 
 		if (p.type == ProvinceData.Type.VILLAGE) {
 			if (newNation.faction == Faction.UNDEAD && !p.abandoned) {

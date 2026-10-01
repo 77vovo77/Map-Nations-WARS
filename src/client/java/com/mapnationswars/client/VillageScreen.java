@@ -156,6 +156,13 @@ public class VillageScreen extends Screen {
 			}
 		}
 
+		// founding a nation here (stage 7): for players without a nation, at the mayor
+		if (village && mine == null && ClientNations.myNation() == null && this.atMayor) {
+			Button found = this.addRenderableWidget(Button.builder(Component.literal("\u2691 Found a nation here (" + com.mapnationswars.nation.Charter.COST + " emeralds)"),
+					b -> this.minecraft.gui.setScreen(new NationsScreen(true))).pos(this.left + 12, my).size(w - 24, 20).build());
+			found.active = this.charterProblem(p) == null;
+		}
+
 		// gifts and closing
 		int by = this.top + h - 28;
 		int gw = 54;
@@ -268,6 +275,20 @@ public class VillageScreen extends Screen {
 
 		// money
 		graphics.text(this.font, "Income " + p.lastIncome + "/day   tax to nation " + p.lastTax + "   upkeep " + p.lastUpkeep, l + 12, y, 0xFFAAAAAA);
+		y += 14;
+
+		// unrest, and how much the people back you (stage 7)
+		if (!p.abandoned) {
+			int ucol = p.unrest >= 85 ? 0xFFFF4040 : p.unrest >= 60 ? 0xFFFF8040 : p.unrest >= 30 ? 0xFFE0C040 : 0xFF7CC87C;
+			graphics.text(this.font, "Unrest " + p.unrest + "% - " + p.unrestLabel(), l + 12, y, ucol);
+
+			if (village && this.myNationHere(p) == null) {
+				int support = ClientRevolts.support(p.id);
+				graphics.text(this.font, "They back you: " + support + "/" + com.mapnationswars.nation.Charter.SUPPORT_NEEDED, col2, y,
+						support >= com.mapnationswars.nation.Charter.SUPPORT_NEEDED ? 0xFF7CFF7C : 0xFFB0B0B0);
+			}
+		}
+
 		y += 18;
 
 		// buildings
@@ -302,6 +323,17 @@ public class VillageScreen extends Screen {
 		}
 
 		super.extractRenderState(graphics, mouseX, mouseY, delta);
+
+		// why you can't found a nation yet
+		if (village && this.atMayor && ClientNations.myNation() == null && this.myNationHere(p) == null) {
+			int fy = t + h - 54;
+
+			if (mouseX >= l + 12 && mouseX < l + w - 12 && mouseY >= fy && mouseY < fy + 20) {
+				String problem = this.charterProblem(p);
+				graphics.setTooltipForNextFrame(this.font, Component.literal(problem != null ? problem
+						: "The people of " + p.name + " are ready to follow you. Name your nation - but the old rulers will fight to keep it."), mouseX, mouseY);
+			}
+		}
 
 		// army kinds on hover
 		if (p.nation != null && !p.abandoned && this.canOrder(p)) {
@@ -352,6 +384,10 @@ public class VillageScreen extends Screen {
 	}
 
 	private String lastBuilding = null;
+
+	private String charterProblem(ProvinceData p) {
+		return com.mapnationswars.nation.Charter.problem(p, ClientRevolts.support(p.id), this.carried());
+	}
 
 	private String fitWidth(String text, int width) {
 		String t = text;

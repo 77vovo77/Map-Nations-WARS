@@ -2157,6 +2157,7 @@ public class MapScreen extends MapNationsBaseScreen {
 			tip.text(Component.literal("Mayor: ").withColor(0xAAAAAA).append(Component.literal(p.mayorName).withColor(0xFFE0A0)));
 			tip.text(Component.literal("Villagers: " + p.population + " / " + p.beds() + " beds   Land: " + p.chunks + " chunks").withColor(0x9CE0A0));
 			tip.text(Component.literal("Happiness " + p.happiness + "%   Food " + p.food + " (" + (p.lastFood >= 0 ? "+" : "") + p.lastFood + "/day)").withColor(0xE8D27A));
+			tip.text(Component.literal("Unrest " + p.unrest + "% - " + p.unrestLabel()).withColor(p.unrest >= 60 ? 0xFF7050 : p.unrest >= 30 ? 0xE0C040 : 0x7CC87C));
 		} else if (p.abandoned) {
 			tip.text(Component.literal("Only zombies live here now").withColor(0x88AA66));
 		} else {

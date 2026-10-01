@@ -103,8 +103,26 @@ Nations ruled by the game now act on their own.
 
 **The Chronicle.** The War tab keeps a chronicle of everything that happened in the world, day by day. It is also announced in chat.
 
+## Revolts, coups and your own nation (stage 7)
+- **Unrest.** Every province has unrest from 0 to 100%. You can see it on the village page, in the map tooltip, and as a ⚠ sign on the map once it passes 60%.
+  - **It rises** with misery (happiness under 30%), hunger, new masters (10 days after a conquest), foreign rule (villages ruled by illagers or piglins), long wars, and nations that grew too big. More than 6 provinces is too many for a player-led nation, and more than 9 for an AI-ruled one: you can't just take all the land.
+  - **It falls** in happy villages (60%+), and wherever one of the nation's own armies keeps order nearby.
+- **Revolts.** At 100% a province rises up and proclaims itself free ("Free Oakvale"), with a rebel army. It goes to war with its old rulers, and angry provinces of the same nation nearby (70%+ unrest) join it.
+  - Capitals never revolt.
+  - If you have no nation and the people back you (60+ support), you are chosen to lead the revolt and rule the new nation.
+- **Hated leaders fall.** If the villages of a player-led nation stay miserable (under 25% average happiness) for 3 days, the people overthrow the player. The player becomes a Citizen and the game rules again.
+- **Coups.** Officers and Ministers with 150 merit can try to seize power from the nation page, with 100 emeralds for bribes. Click twice to be sure.
+  - The page shows the chance. It is higher with more merit and an unhappy people, and lower against a player leader who is online.
+  - **If it works,** you rule the nation, and unrest rises everywhere while things settle down.
+  - **If it fails,** you are exiled from the nation.
+- **Founding your own nation** is hard on purpose:
+  1. Belong to no nation.
+  2. Win the support of a village: give its mayor emeralds, kill monsters there and spend time there. The village page shows "They back you: x/100", and support slowly fades.
+  3. You need 100 support, and the village must be restless (40%+ unrest) or unhappy (under 45%). Once you have 200 support, even a happy village follows you. It can't be a capital.
+  4. Talk to the mayor and press **Found a nation here**. Pay the 200-emerald charter, then choose a name, colour, ideology and banner.
+- **The new nation** gets that village, a free militia and a small treasury. Its old rulers declare war at once, so you will have to defend it, win allies or make peace.
+
 ## Coming next
-7. Revolts, coups and founding your own nation.
 8. Portals: ruined portals waking up, invasions between the Nether and the Overworld.
 
 Press **M** to open it. The top bar shows **Map Nations WARS** and five tabs: **Map**, **Nations**, **Alliances**, **Letters** and **War**.

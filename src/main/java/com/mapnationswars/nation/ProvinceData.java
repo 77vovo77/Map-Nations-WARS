@@ -69,6 +69,16 @@ public final class ProvinceData {
 	public int lastTax;
 	public int lastUpkeep;
 
+	// ---------------------------------------------------------------- stage 7: unrest
+	/** 0 = calm, 100 = the province rises up. */
+	public int unrest;
+	/** The day it was last conquered (server only). */
+	public long conqueredDay = -100;
+
+	public String unrestLabel() {
+		return this.unrest >= 85 ? "Revolt soon!" : this.unrest >= 60 ? "Angry" : this.unrest >= 30 ? "Restless" : "Calm";
+	}
+
 	/** How many villagers fit into the houses. */
 	public int beds() {
 		return this.houses * 2;
@@ -114,6 +124,7 @@ public final class ProvinceData {
 		buf.writeInt(this.lastIncome);
 		buf.writeInt(this.lastTax);
 		buf.writeInt(this.lastUpkeep);
+		buf.writeVarInt(this.unrest);
 		buf.writeVarInt(this.area.size());
 
 		for (long key : this.area) {
@@ -148,6 +159,7 @@ public final class ProvinceData {
 		p.lastIncome = buf.readInt();
 		p.lastTax = buf.readInt();
 		p.lastUpkeep = buf.readInt();
+		p.unrest = buf.readVarInt();
 		int n = buf.readVarInt();
 
 		for (int i = 0; i < n; i++) {

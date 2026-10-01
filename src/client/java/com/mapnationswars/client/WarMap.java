@@ -131,6 +131,20 @@ final class WarMap {
 			g.text(font, text, x - font.width(text) / 2, y + 5, blink ? 0xFFFF6A50 : 0xFFFFC0A0, true);
 		}
 
+		// restless provinces (stage 7)
+		for (com.mapnationswars.nation.MarkerData m : ClientMarkers.all()) {
+			ProvinceData p = m.province;
+
+			if (p == null || p.unrest < 60 || !p.dimension.equals(dim)) {
+				continue;
+			}
+
+			int x = (int) Math.round(pr.sx(p.x));
+			int y = (int) Math.round(pr.sy(p.z)) - 20;
+			int color = p.unrest >= 85 ? (blink ? 0xFFFF3020 : 0xFFFFD040) : 0xFFFF9040;
+			g.centeredText(font, "\u26A0", x, y, color);
+		}
+
 		// battles
 		for (WarSyncPayload.Battle b : ClientWar.battles()) {
 			if (!b.dimension().equals(dim)) {

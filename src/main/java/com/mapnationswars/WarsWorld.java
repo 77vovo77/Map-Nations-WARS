@@ -765,6 +765,10 @@ public final class WarsWorld {
 					} else {
 						WarsEconomy.startingBuildings(p, new Random(p.id.getLeastSignificantBits()));
 					}
+
+					p.unrest = o.has("unrest") ? o.get("unrest").getAsInt() : 0;
+					p.conqueredDay = o.has("conquered") ? o.get("conquered").getAsLong() : -100;
+
 					for (JsonElement c : o.getAsJsonArray("chunks")) {
 						p.area.add(c.getAsLong());
 					}
@@ -826,6 +830,8 @@ public final class WarsWorld {
 			eco.addProperty("lastTax", p.lastTax);
 			eco.addProperty("lastUpkeep", p.lastUpkeep);
 			o.add("economy", eco);
+			o.addProperty("unrest", p.unrest);
+			o.addProperty("conquered", p.conqueredDay);
 			JsonArray chunks = new JsonArray();
 
 			for (long c : p.area) {

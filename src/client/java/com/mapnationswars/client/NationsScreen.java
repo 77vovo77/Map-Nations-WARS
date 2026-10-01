@@ -82,6 +82,18 @@ public class NationsScreen extends PagedScreen {
 		}
 	}
 
+	/** Opens the charter: the form for founding a nation at the village you stand in (Map Nations WARS stage 7). */
+	public NationsScreen(boolean charter) {
+		this();
+
+		if (charter) {
+			this.openCharter = true;
+		}
+	}
+
+	private boolean openCharter = false;
+	private boolean coupArmed = false;
+
 	// ---------------------------------------------------------------- helpers
 
 	private UUID myId() {
@@ -168,6 +180,20 @@ public class NationsScreen extends PagedScreen {
 
 	@Override
 	protected void init() {
+		if (this.openCharter) {
+			this.openCharter = false;
+			draftName = "";
+			draftColor = -1;
+			draftIdeology = null;
+			draftBannerSlot = -1;
+			draftBanner = ItemStack.EMPTY;
+			draftBannerRemoved = false;
+			this.editing = false;
+			this.view = View.FORM;
+			this.selected = null;
+			this.scroll = 0;
+		}
+
 		this.addTabs();
 		this.layoutFrame();
 
@@ -212,7 +238,7 @@ public class NationsScreen extends PagedScreen {
 		}
 
 		String money = "   Treasury: " + n.treasury + " emeralds (" + (n.lastBalance >= 0 ? "+" : "") + n.lastBalance + "/day)";
-		List<String> stats = this.wrap((n.ai ? n.faction.displayName + " (AI)   Provinces: " + provinces + money + "   " : "")
+		List<String> stats = this.wrap((n.ai ? n.faction.displayName + (n.aiRuled() ? " (AI)" : "") + "   Provinces: " + provinces + money + "   " : "")
 				+ "Members: " + n.members.size() + "   Territory: " + ClientNations.chunkCount(n.id)
 				+ " chunks   Villagers: " + n.population + (alliance != null ? "   Alliance: " + alliance.name : ""), this.innerW());
 		stats = new ArrayList<>(stats);
@@ -283,6 +309,13 @@ public class NationsScreen extends PagedScreen {
 					+ (owed > 0 ? "   Waiting: " + owed + " emeralds (collect at any mayor)" : ""), this.innerW()));
 		}
 
+		// coups (stage 7)
+		if (n.isMember(me) && !n.leader.equals(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.OFFICER) {
+			int pct = (int) Math.round(com.mapnationswars.nation.Charter.coupChance(n, me, this.averageHappiness(n), !n.aiRuled()) * 100);
+			lines.addAll(this.wrap("Coup: needs " + com.mapnationswars.nation.Charter.COUP_MERIT + " merit and "
+					+ com.mapnationswars.nation.Charter.COUP_COST + " emeralds for bribes. Chance ~" + pct + "% (higher when the people are unhappy). Failing means exile.", this.innerW()));
+		}
+
 		if (n.ai && com.mapnationswars.nation.Ranks.hasElections(n.ideology)) {
 			long day = this.minecraft != null && this.minecraft.level != null ? this.minecraft.level.getGameTime() / 24000 : 0;
 			long days = Math.max(0, n.nextElection - day);
@@ -319,6 +352,20 @@ public class NationsScreen extends PagedScreen {
 		return lines;
 	}
 
+	private double averageHappiness(NationData n) {
+		int total = 0;
+		int count = 0;
+
+		for (com.mapnationswars.nation.MarkerData m : ClientMarkers.all()) {
+			if (m.province != null && n.id.equals(m.province.nation) && !m.province.abandoned) {
+				total += m.province.happiness;
+				count++;
+			}
+		}
+
+		return count == 0 ? 50 : total / (double) count;
+	}
+
 	private boolean canWriteLetters(NationData mine) {
 		return mine != null && (mine.leader.equals(this.myId()) || mine.rankOf(this.myId()) >= com.mapnationswars.nation.Ranks.MINISTER);
 	}
@@ -346,6 +393,20 @@ public class NationsScreen extends PagedScreen {
 					list.add(new ButtonSpec("Run for " + n.ideology.leaderTitle, Math.max(110, this.font.width("Run for " + n.ideology.leaderTitle) + 16),
 							b -> this.send(NationActionPayload.simple(NationActionPayload.RUN_FOR_OFFICE, ""))));
 				}
+			}
+
+			// coup (stage 7): click twice to be sure
+			if (!n.leader.equals(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.OFFICER) {
+				list.add(new ButtonSpec(this.coupArmed ? "\u265B Really? Click again!" : "\u265B Attempt a coup", 130, b -> {
+					if (this.coupArmed) {
+						this.coupArmed = false;
+						this.send(NationActionPayload.simple(NationActionPayload.COUP, ""));
+					} else {
+						this.coupArmed = true;
+					}
+
+					this.rebuildWidgets();
+				}));
 			}
 		} else if (mine == null) {
 			if (n.hasRequest(me)) {
@@ -888,7 +949,7 @@ public class NationsScreen extends PagedScreen {
 		int w = this.innerW() - 10;
 		int cx = this.panelX + this.innerW() / 2;
 
-		this.drawBigText(graphics, Component.literal(this.editing ? "Edit Your Nation" : "Create Your Nation"), cx, lay.titleY(), 1.5f);
+		this.drawBigText(graphics, Component.literal(this.editing ? "Edit Your Nation" : "Charter of a New Nation"), cx, lay.titleY(), 1.5f);
 		graphics.text(this.font, "Name", x, lay.nameY(), 0xFFFFD060);
 
 		// banner slot
