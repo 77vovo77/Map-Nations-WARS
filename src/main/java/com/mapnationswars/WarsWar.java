@@ -997,14 +997,48 @@ public final class WarsWar {
 		}
 	}
 
-	private static EntityType<? extends Mob> soldierType(Faction faction, DivisionData.Kind kind, boolean nether) {
+	private static final Map<String, EntityType<?>> TYPES = new HashMap<>();
+
+	/**
+	 * Finds a vanilla entity type by its constant name. Looked up by name so it works
+	 * wherever this Minecraft version keeps its entity type constants.
+	 */
+	private static EntityType<?> entityType(String constant) {
+		if (TYPES.containsKey(constant)) {
+			return TYPES.get(constant);
+		}
+
+		EntityType<?> found = null;
+
+		for (String cls : new String[] {"net.minecraft.world.entity.EntityType", "net.minecraft.world.entity.EntityTypes"}) {
+			try {
+				Object value = Class.forName(cls).getField(constant).get(null);
+
+				if (value instanceof EntityType<?> t) {
+					found = t;
+					break;
+				}
+			} catch (ReflectiveOperationException | LinkageError ignored) {
+				// not in this class
+			}
+		}
+
+		if (found == null) {
+			MapNationsMod.LOGGER.warn("Map Nations WARS: no entity type {}", constant);
+		}
+
+		TYPES.put(constant, found);
+		return found;
+	}
+
+	private static String soldierType(Faction faction, DivisionData.Kind kind, boolean nether) {
 		boolean ranged = kind == DivisionData.Kind.ARCHERS || RANDOM.nextInt(3) == 0;
 
 		return switch (faction) {
-			case ILLAGER -> ranged ? EntityType.PILLAGER : EntityType.VINDICATOR;
-			case PIGLIN -> nether ? (ranged ? EntityType.PIGLIN : EntityType.PIGLIN_BRUTE) : EntityType.ZOMBIFIED_PIGLIN;
-			case UNDEAD -> ranged ? EntityType.SKELETON : EntityType.HUSK;
-			default -> EntityType.IRON_GOLEM;
+			case ILLAGER -> ranged ? "PILLAGER" : "VINDICATOR";
+			case PIGLIN -> nether ? (ranged ? "PIGLIN" : "PIGLIN_BRUTE") : "ZOMBIFIED_PIGLIN";
+			case UNDEAD -> ranged ? "SKELETON" : "HUSK";
+			default -> "IRON_GOLEM";
 		};
 	}
 
@@ -1027,17 +1061,26 @@ public final class WarsWar {
 
 		boolean nether = dimension.equals("minecraft:the_nether");
 		int y = nether ? (int) Math.floor(foe.getY()) : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-		EntityType<? extends Mob> type = soldierType(n.faction, kind, nether);
-		Mob mob;
+		EntityType<?> type = entityType(soldierType(n.faction, kind, nether));
+
+		if (type == null) {
+			return;
+		}
+
+		Entity spawned;
 
 		try {
-			mob = type.spawn(level, new BlockPos(x, y, z), EntitySpawnReason.EVENT);
+			spawned = type.spawn(level, new BlockPos(x, y, z), EntitySpawnReason.EVENT);
 		} catch (Exception e) {
 			MapNationsMod.LOGGER.warn("Map Nations WARS: could not spawn a soldier", e);
 			return;
 		}
 
-		if (mob == null) {
+		if (!(spawned instanceof Mob mob)) {
+			if (spawned != null) {
+				spawned.discard();
+			}
+
 			return;
 		}
 
