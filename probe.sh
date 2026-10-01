@@ -22,23 +22,11 @@ for j in $JARS; do
   unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "(EntityRendererRegistry|FabricDefaultAttributeRegistry|FabricEntityType)\.class$" | sed "s|^|$(basename $j): |" >> $OUT
 done
 p() { echo "== $1" >> $OUT; javap -public -cp "$CP" "$1" 2>&1 | grep -E "${2:-.}" | head -${3:-80} >> $OUT; }
-p net.minecraft.world.entity.ai.Brain "removeAllBehaviors|stopAll|clearMemories|eraseMemory|setActiveActivity" 8
-p net.minecraft.world.entity.npc.villager.VillagerProfession " ARMORER;| FLETCHER;| CLERIC;| WEAPONSMITH;| NONE;" 6
-p net.minecraft.world.entity.LivingEntity "getAttribute\\(|void swing\\(|setYHeadRot|setYBodyRot" 6
-p net.minecraft.world.entity.ai.attributes.AttributeInstance "setBaseValue" 3
-p net.minecraft.world.level.Level "damageSources\\(" 3
-p net.minecraft.world.damagesource.DamageSources "mobAttack|playerAttack" 4
-p net.minecraft.world.level.block.state.properties.BlockStateProperties " BED_PART;| HORIZONTAL_FACING;| DOUBLE_BLOCK_HALF;| DOOR_HINGE;| AGE_7;" 6
-p net.minecraft.core.registries.BuiltInRegistries " BLOCK;" 3
-p net.minecraft.core.DefaultedRegistry "getValue|get\\(" 6
-p net.minecraft.core.Registry "getValue\\(|getOptional\\(" 6
-p net.minecraft.world.level.block.Blocks "BED" 6
-p net.minecraft.world.item.Items " IRON_SWORD;| BOW;| CROSSBOW;| GOLDEN_SWORD;| ARROW;| BREAD;| GOLDEN_HELMET;" 8
-p net.minecraft.world.item.ItemStack "ItemStack\\(net.minecraft.world.level.ItemLike\\)|ItemStack\\(net.minecraft.world.level.ItemLike, int\\)" 3
-p net.minecraft.world.entity.Entity "distanceTo\\(|getBoundingBox\\(\\)|setPos\\(double" 4
-p net.minecraft.world.entity.npc.villager.Villager "setVillagerData|getVillagerData" 3
-echo "== Villager protected" >> $OUT; javap -protected -cp "$CP" net.minecraft.world.entity.npc.villager.Villager 2>&1 | grep -E "Brain|registerGoals" | head -6 >> $OUT
-echo "== Mob protected" >> $OUT; javap -protected -cp "$CP" net.minecraft.world.entity.Mob 2>&1 | grep -E "goalSelector|targetSelector|registerGoals" | head -5 >> $OUT
+p net.minecraft.world.entity.EntityTypes " OAK_BOAT;| BOAT;| ZOMBIE_VILLAGER;" 4
+p net.minecraft.world.entity.Entity "startRiding|stopRiding|isPassenger\\(|getVehicle\\(|isInWater\\(|ejectPassengers|setDeltaMovement\\(double" 12
+p net.minecraft.world.item.Items " LEATHER_HELMET;| IRON_HELMET;| CHAINMAIL_HELMET;" 4
+echo "== boat classes" >> $OUT; grep -iE "/(Boat|AbstractBoat)\.class" classes.txt >> $OUT
+p net.minecraft.world.entity.vehicle.boat.Boat "Boat\\(" 3
 wc -c $OUT
 # emit as annotations (chunks)
 split -b 3500 $OUT chunk_
