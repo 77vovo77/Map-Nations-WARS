@@ -22,42 +22,31 @@ for j in $JARS; do
   unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "(EntityRendererRegistry|FabricDefaultAttributeRegistry|FabricEntityType)\.class$" | sed "s|^|$(basename $j): |" >> $OUT
 done
 p() { echo "== $1" >> $OUT; javap -public -cp "$CP" "$1" 2>&1 | grep -E "${2:-.}" | head -${3:-80} >> $OUT; }
-p net.minecraft.world.entity.npc.villager.Villager "Villager\(|makeBrain|brainProvider|createAttributes|setVillagerData|getVillagerData|registerBrainGoals|mobInteract|customServerAiStep|setAge" 40
-p net.minecraft.world.entity.Mob "goalSelector|targetSelector|getNavigation|setTarget|setNoAi|setPersistenceRequired|setItemSlot|setDropChance|registerGoals|createMobAttributes|doHurtTarget|setLeftHanded" 40
-p net.minecraft.world.entity.LivingEntity "setItemSlot|getAttribute|setHealth|hurtServer|kill|setYHeadRot|swing" 30
-p net.minecraft.world.entity.Entity "teleportTo|discard|kill|setNoGravity|addTag|getTags|entityTags|setInvulnerable|startRiding|getType\(" 30
-p net.minecraft.world.entity.ai.goal.MeleeAttackGoal "MeleeAttackGoal\(" 5
-p net.minecraft.world.entity.ai.goal.Goal "." 30
-p net.minecraft.world.entity.ai.goal.GoalSelector "addGoal|removeAllGoals|removeGoal" 10
-p net.minecraft.world.entity.ai.goal.RandomStrollGoal "RandomStrollGoal\(" 5
-p net.minecraft.world.entity.ai.goal.LookAtPlayerGoal "LookAtPlayerGoal\(" 5
-p net.minecraft.world.entity.ai.goal.FloatGoal "FloatGoal\(" 5
-p net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal "HurtByTargetGoal\(" 5
-p net.minecraft.world.entity.ai.navigation.PathNavigation "moveTo|stop" 10
-p net.minecraft.world.entity.ai.attributes.Attributes "MAX_HEALTH|ATTACK_DAMAGE|MOVEMENT_SPEED|SCALE|FOLLOW_RANGE|ARMOR " 10
-p 'net.minecraft.world.entity.ai.attributes.AttributeSupplier$Builder' "." 15
-p 'net.minecraft.world.entity.EntityType$Builder' "of\(|sized|build|clientTrackingRange|noSummon" 20
-p net.minecraft.world.entity.EntityType "spawn\(|create\(|IRON_GOLEM|VILLAGER|byString|getDescriptionId" 20
-p net.minecraft.core.registries.BuiltInRegistries "ENTITY_TYPE" 5
-p net.minecraft.core.Registry "static.*register" 10
-p net.minecraft.resources.ResourceKey "static" 10
-p net.minecraft.world.entity.EquipmentSlot "MAINHAND|HEAD|OFFHAND" 5
-p net.minecraft.world.entity.AgeableMob "setAge|setBaby" 5
-p net.minecraft.client.renderer.entity.VillagerRenderer "." 20
-p net.minecraft.client.renderer.entity.EntityRenderers "register" 5
-p net.minecraft.world.level.block.BedBlock "PART|FACING|OCCUPIED" 5
-p net.minecraft.world.level.block.state.properties.BedPart "HEAD|FOOT" 5
-p net.minecraft.world.level.block.DoorBlock "HALF|FACING|HINGE|OPEN" 8
-p net.minecraft.world.level.block.state.BlockState "setValue|is\(" 5
-p net.minecraft.world.level.block.state.StateHolder "setValue" 5
-p net.minecraft.world.level.Level "setBlock\(|getBlockState|isEmptyBlock|destroyBlock" 10
-for c in $(grep -E "/(Arrow|AbstractArrow|AbstractPiglin|Blocks|Vindicator|Evoker|EntityRendererRegistry|FabricDefaultAttributeRegistry)\.class" classes.txt | sed 's|\.class||;s|/|.|g'); do p $c "Arrow\(|shoot|setImmuneToZombification|OAK_PLANKS |COBBLESTONE |WHITE_BED |OAK_DOOR |FARMLAND |WHEAT |CRAFTING_TABLE |TORCH |OAK_LOG |GLASS_PANE |HAY_BLOCK |FURNACE |OAK_STAIRS |WATER |register|Vindicator\(|Evoker\(" 30; done
-for j in $JARS; do
-  for c in $(unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "(EntityRendererRegistry|FabricDefaultAttributeRegistry)\.class$" | sed 's|\.class||;s|/|.|g'); do p $c "." 15; done
-done
+p net.minecraft.world.entity.npc.villager.Villager "makeBrain|brainProvider|registerGoals|customServerAiStep|getBrain|Brain" 20
+p net.minecraft.world.entity.Mob "goalSelector|targetSelector|getNavigation\(|void setTarget|setNoAi|setPersistenceRequired|void setItemSlot|setDropChance|registerGoals|createMobAttributes|doHurtTarget" 20
+p net.minecraft.world.entity.LivingEntity "hurtServer|void kill|setHealth|getMaxHealth" 10
+p net.minecraft.world.entity.Entity "teleportTo\(double|void discard|void kill|setInvulnerable|setYRot|setGlowingTag|setSilent" 12
+p net.minecraft.world.entity.ai.goal.MeleeAttackGoal "MeleeAttackGoal\(" 3
+p 'net.minecraft.world.entity.EntityType$Builder' "of\(|sized|build\(|clientTrackingRange" 10
+p net.minecraft.world.entity.EntityTypes " VILLAGER;| IRON_GOLEM;| EVOKER;" 5
+p net.minecraft.world.entity.MobCategory "MONSTER|CREATURE|MISC" 5
+p net.minecraft.core.registries.BuiltInRegistries " ENTITY_TYPE;" 3
+p net.minecraft.core.Registry "static.*register\(" 6
+echo "== BedBlock" >> $OUT; javap -p -cp "$CP" net.minecraft.world.level.block.BedBlock 2>&1 | grep -E "PART|FACING" | head -5 >> $OUT
+echo "== HorizontalDirectionalBlock" >> $OUT; javap -p -cp "$CP" net.minecraft.world.level.block.HorizontalDirectionalBlock 2>&1 | grep -E "FACING" | head -3 >> $OUT
+p net.minecraft.world.level.block.Blocks " OAK_PLANKS;| COBBLESTONE;| WHITE_BED;| OAK_DOOR;| FARMLAND;| WHEAT;| CRAFTING_TABLE;| TORCH;| OAK_LOG;| GLASS_PANE;| FURNACE;| WATER;| AIR;| DIRT_PATH;| OAK_FENCE;| RED_WOOL;" 20
+p net.minecraft.world.entity.projectile.arrow.Arrow "Arrow\(" 6
+p net.minecraft.world.entity.projectile.Projectile "void shoot\(" 3
+p net.minecraft.world.entity.monster.piglin.AbstractPiglin "setImmuneToZombification" 2
+p net.minecraft.world.level.Level "boolean setBlock\(" 3
+p net.minecraft.world.level.block.state.StateHolder "setValue" 3
+p net.minecraft.world.level.block.state.properties.DoubleBlockHalf "UPPER|LOWER" 3
+p net.minecraft.world.level.block.state.BlockBehaviour\$BlockStateBase "isAir\(\)|canBeReplaced\(\)|liquid\(\)|isSolid\(\)|blocksMotion" 6
+p net.minecraft.world.level.block.CropBlock "AGE|getStateForAge|getMaxAge" 4
+p net.minecraft.world.entity.npc.villager.VillagerData "with|profession" 8
 wc -c $OUT
 # emit as annotations (chunks)
-split -b 7000 $OUT chunk_
+split -b 3500 $OUT chunk_
 i=0
 for f in chunk_*; do
   msg=$(cat $f | sed 's/%/%25/g' | tr '\n' '\r' | sed 's/\r/%0A/g')

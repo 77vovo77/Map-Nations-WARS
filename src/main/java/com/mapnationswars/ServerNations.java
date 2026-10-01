@@ -1281,6 +1281,18 @@ public final class ServerNations {
 					n.lastBalance = o.get("lastBalance").getAsInt();
 				}
 
+				if (o.has("taxLevel")) {
+					n.taxLevel = o.get("taxLevel").getAsInt();
+				}
+
+				if (o.has("ledger")) {
+					JsonObject led = o.getAsJsonObject("ledger");
+
+					for (String k : led.keySet()) {
+						n.ledger.put(k, led.get(k).getAsInt());
+					}
+				}
+
 				if (o.has("politics")) {
 					JsonObject pol = o.getAsJsonObject("politics");
 					readIntMap(pol.getAsJsonObject("ranks"), n.ranks);
@@ -1432,6 +1444,14 @@ public final class ServerNations {
 
 			o.addProperty("treasury", n.treasury);
 			o.addProperty("lastBalance", n.lastBalance);
+			o.addProperty("taxLevel", n.taxLevel);
+			JsonObject led = new JsonObject();
+
+			for (Map.Entry<String, Integer> e : n.ledger.entrySet()) {
+				led.addProperty(e.getKey(), e.getValue());
+			}
+
+			o.add("ledger", led);
 			JsonObject pol = new JsonObject();
 			pol.add("ranks", writeIntMap(n.ranks));
 			pol.add("merit", writeIntMap(n.merit));
