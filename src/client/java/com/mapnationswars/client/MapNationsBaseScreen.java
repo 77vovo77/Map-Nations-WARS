@@ -32,7 +32,8 @@ abstract class MapNationsBaseScreen extends Screen {
 		MAP("Map"),
 		NATIONS("Nations"),
 		ALLIANCES("Alliances"),
-		LETTERS("Letters");
+		LETTERS("Letters"),
+		WAR("War");
 
 		final String label;
 
@@ -107,8 +108,13 @@ abstract class MapNationsBaseScreen extends Screen {
 		return this.compact() ? 48 : 60;
 	}
 
+	/** On narrow screens the mod name is shortened so all five tabs and the map buttons fit. */
+	private String titleText() {
+		return this.fw < 520 ? "WARS" : TITLE;
+	}
+
 	private int titleW() {
-		return this.font.width(TITLE) + 18;
+		return this.font.width(this.titleText()) + 18;
 	}
 
 	/** Adds the tab buttons after the title. Returns the x where free space starts. */
@@ -137,6 +143,7 @@ abstract class MapNationsBaseScreen extends Screen {
 			case NATIONS -> new NationsScreen();
 			case ALLIANCES -> new AlliancesScreen();
 			case LETTERS -> new LettersScreen();
+			case WAR -> new WarScreen();
 		};
 
 		this.minecraft.gui.setScreen(next);
@@ -168,7 +175,7 @@ abstract class MapNationsBaseScreen extends Screen {
 		graphics.fill(x + 1, y - 2, x + 6, y + 6, C_ACCENT);
 		graphics.fill(x + 1, y + 6, x + 3, y + 9, C_ACCENT);
 		graphics.fill(x + 4, y + 6, x + 6, y + 9, C_ACCENT);
-		graphics.text(this.font, Component.literal(TITLE).withStyle(style -> style.withColor(0xFFE7B0).withBold(false)), x + 11, y, 0xFFFFFFFF, true);
+		graphics.text(this.font, Component.literal(this.titleText()).withStyle(style -> style.withColor(0xFFE7B0).withBold(false)), x + 11, y, 0xFFFFFFFF, true);
 
 		int tx = this.tabsX + this.tab.ordinal() * (this.tabW() + 2);
 		graphics.fill(tx + 2, t + 27, tx + this.tabW() - 2, t + 29, C_ACCENT);

@@ -280,6 +280,29 @@ public class MapScreen extends MapNationsBaseScreen {
 		return this.centerZ + (screenY - this.height / 2.0) / this.zoom;
 	}
 
+	private final WarMap.Projection projection = new WarMap.Projection() {
+		@Override
+		public double sx(double worldX) {
+			return MapScreen.this.toScreenX(worldX);
+		}
+
+		@Override
+		public double sy(double worldZ) {
+			return MapScreen.this.toScreenY(worldZ);
+		}
+	};
+
+	/** Opens the map looking at a place (e.g. an army from the War tab). */
+	static void focus(double x, double z) {
+		savedFollow = false;
+		savedCenterX = x;
+		savedCenterZ = z;
+	}
+
+	private UUID myId() {
+		return this.minecraft != null && this.minecraft.player != null ? this.minecraft.player.getUUID() : new UUID(0, 0);
+	}
+
 	/** Turns a screen position into a pixel we can pass to fill(), without overflowing on huge numbers. */
 	private static int clampPx(double v) {
 		return (int) Math.floor(Mth.clamp(v, -10000.0, 10000.0));
@@ -378,6 +401,9 @@ public class MapScreen extends MapNationsBaseScreen {
 		} else if (hoveredMarker != null && (hoveredMarker.type.settlement || hoveredMarker.province != null) && !hoveredMarker.area.isEmpty()) {
 			this.drawArea(graphics, hoveredMarker.area, 0xFFD54F, false); // show the settlement's borders
 		}
+		// armies, battles and sieges (stage 5)
+		com.mapnationswars.nation.DivisionData hoveredDivision = this.editingArea == null
+				? WarMap.draw(graphics, this.font, this.projection, dim, mouseX, mouseY, overMap, this.myId()) : null;
 		Dot hoveredPlayer = this.drawPlayers(graphics, player, dim, mouseX, mouseY, overMap);
 		this.drawPlayerArrow(graphics, player);
 
@@ -428,6 +454,8 @@ public class MapScreen extends MapNationsBaseScreen {
 			this.panelTooltip(graphics, hoveredPanelType, mouseX, mouseY);
 		} else if (this.placingType != null || this.movingMarker != null || this.selecting) {
 			// no tooltips while placing / moving / selecting, they would cover the spot
+		} else if (hoveredDivision != null) {
+			WarMap.tooltip(graphics, this.font, hoveredDivision, mouseX, mouseY, this.width, this.height, this.myId());
 		} else if (hoveredMarker != null) {
 			this.markerTooltip(graphics, hoveredMarker, mouseX, mouseY);
 		} else if (hoveredPlayer != null) {
@@ -1182,7 +1210,14 @@ public class MapScreen extends MapNationsBaseScreen {
 				right = null;
 			}
 		} else {
-			return 0;
+			com.mapnationswars.nation.DivisionData sel = WarMap.selectedDivision();
+
+			if (sel == null || !ClientWar.canCommand(sel, this.myId())) {
+				return 0;
+			}
+
+			left = "deselect " + sel.name;
+			right = "send it there (a province: attack / defend it)";
 		}
 
 		List<Component> lines = new ArrayList<>();
@@ -1755,6 +1790,23 @@ public class MapScreen extends MapNationsBaseScreen {
 			}
 
 			MarkerData existing = this.markerAt(dim, click.x(), click.y());
+			com.mapnationswars.nation.DivisionData sel = WarMap.selectedDivision();
+
+			// an army is picked: send it
+			if (sel != null && this.editingArea == null && !this.claimMode && ClientWar.canCommand(sel, this.myId())) {
+				int gx = Mth.floor(this.toWorldX(click.x()));
+				int gz = Mth.floor(this.toWorldZ(click.y()));
+				String target = existing != null && existing.province != null ? existing.province.id.toString() : "";
+
+				if (!sel.dimension.equals(dim)) {
+					ClientNations.setStatus(sel.name + " is in another dimension.", false);
+				} else if (ClientPlayNetworking.canSend(com.mapnationswars.network.ArmyActionPayload.TYPE)) {
+					ClientPlayNetworking.send(new com.mapnationswars.network.ArmyActionPayload(com.mapnationswars.network.ArmyActionPayload.MOVE,
+							sel.id.toString(), target, gx, gz));
+				}
+
+				return true;
+			}
 
 			if (existing != null && existing.province != null) {
 				this.minecraft.gui.setScreen(new VillageScreen(this, existing.province.id, false));
@@ -1772,6 +1824,34 @@ public class MapScreen extends MapNationsBaseScreen {
 		if (click.input() == SDLMouse.SDL_BUTTON_LEFT) {
 			int bx = Mth.floor(this.toWorldX(click.x()));
 			int bz = Mth.floor(this.toWorldZ(click.y()));
+
+			// armies: pick one of yours, or put the picked one down
+			if (this.placingType == null && this.movingMarker == null && this.editingArea == null && !this.claimMode) {
+				com.mapnationswars.nation.DivisionData clicked = WarMap.divisionAt(this.projection, dim, click.x(), click.y());
+
+				if (clicked != null) {
+					if (ClientWar.canCommand(clicked, this.myId())) {
+						WarMap.selected = clicked.id.equals(WarMap.selected) ? null : clicked.id;
+
+						if (WarMap.selected != null) {
+							ClientNations.setStatus(clicked.name + " picked. Right-click the map to send it.", true);
+						}
+					} else {
+						NationData owner = ClientNations.get(clicked.nation);
+
+						if (owner != null) {
+							this.minecraft.gui.setScreen(new NationsScreen(owner.id));
+						}
+					}
+
+					return true;
+				}
+
+				if (WarMap.selected != null) {
+					WarMap.selected = null; // clicking elsewhere puts the army down
+					return true;
+				}
+			}
 
 			if (this.movingMarker != null) {
 				MarkerData moving = this.movingMarker;

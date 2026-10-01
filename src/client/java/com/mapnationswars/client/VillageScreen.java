@@ -22,7 +22,7 @@ import com.mapnationswars.network.VillageActionPayload;
  */
 public class VillageScreen extends Screen {
 	private static final int W = 300;
-	private static final int H = 262;
+	private static final int H = 288;
 	/** Costs and effects, same as the server (WarsEconomy.Build). */
 	private static final String[][] BUILDS = {
 		{"HOUSE", "House", "12", "+2 beds"},
@@ -117,6 +117,24 @@ public class VillageScreen extends Screen {
 			}
 		}
 
+		// raising armies (stage 5): from the map too, like building orders
+		if (p.nation != null && !p.abandoned && this.canOrder(p)) {
+			int ry = this.top + h - 106;
+			int rw = (w - 24 - 12) / 4;
+			com.mapnationswars.nation.DivisionData.Kind[] kinds = com.mapnationswars.nation.DivisionData.Kind.values();
+
+			for (int i = 0; i < kinds.length; i++) {
+				com.mapnationswars.nation.DivisionData.Kind k = kinds[i];
+				Button raise = this.addRenderableWidget(Button.builder(Component.literal(k.symbol + " " + k.displayName + " " + k.cost), b -> {
+					if (ClientPlayNetworking.canSend(com.mapnationswars.network.ArmyActionPayload.TYPE)) {
+						ClientPlayNetworking.send(new com.mapnationswars.network.ArmyActionPayload(com.mapnationswars.network.ArmyActionPayload.RAISE,
+								this.provinceId.toString(), k.name(), 0, 0));
+					}
+				}).pos(this.left + 12 + i * (rw + 4), ry).size(rw, 20).build());
+				raise.active = ClientWar.siegeOf(p.id) == null;
+			}
+		}
+
 		// salary and treasury (members of the nation, in person)
 		NationData mine = this.myNationHere(p);
 		int my = this.top + h - 54;
@@ -204,6 +222,20 @@ public class VillageScreen extends Screen {
 		graphics.text(this.font, Component.literal(sub).withColor(0xAAAAAA)
 				.append(n != null ? Component.literal(n.name).withColor(n.color) : Component.literal("")), l + 12, t + 22, 0xFFFFFFFF, true);
 
+		// under siege?
+		com.mapnationswars.network.WarSyncPayload.Siege siege = ClientWar.siegeOf(p.id);
+
+		if (siege != null) {
+			NationData attacker = ClientNations.get(siege.attacker());
+			String text = "\u26A0 Siege " + (int) siege.progress() + "%";
+			graphics.text(this.font, text, l + w - 12 - this.font.width(text), t + 10, 0xFFFF6050);
+
+			if (attacker != null) {
+				String by = this.fitWidth("by " + attacker.name, w / 2 - 12);
+				graphics.text(this.font, by, l + w - 12 - this.font.width(by), t + 22, 0xFF000000 | attacker.color);
+			}
+		}
+
 		int y = t + 38;
 		boolean village = p.type == ProvinceData.Type.VILLAGE && !p.abandoned;
 
@@ -263,13 +295,33 @@ public class VillageScreen extends Screen {
 				info += "  Treasury: " + mine.treasury;
 			}
 
-			graphics.text(this.font, info, l + 12, t + h - 92 - 4, 0xFF888888);
+			graphics.text(this.font, info, l + 12, t + h - 134, 0xFF888888);
 		} else {
 			graphics.text(this.font, p.type == ProvinceData.Type.BASTION ? "A piglin stronghold. Lives from gold and raids."
 					: "An illager stronghold. Lives from raids.", l + 12, y, 0xFF888888);
 		}
 
 		super.extractRenderState(graphics, mouseX, mouseY, delta);
+
+		// army kinds on hover
+		if (p.nation != null && !p.abandoned && this.canOrder(p)) {
+			int rw = (w - 24 - 12) / 4;
+			int ry = t + h - 106;
+			com.mapnationswars.nation.DivisionData.Kind[] kinds = com.mapnationswars.nation.DivisionData.Kind.values();
+			graphics.text(this.font, "Raise an army here (paid from the treasury):", l + 12, ry - 11, 0xFFFF9C7A);
+
+			for (int i = 0; i < kinds.length; i++) {
+				int bx = l + 12 + i * (rw + 4);
+
+				if (mouseX >= bx && mouseX < bx + rw && mouseY >= ry && mouseY < ry + 20) {
+					com.mapnationswars.nation.DivisionData.Kind k = kinds[i];
+					NationData owner = ClientNations.get(p.nation);
+					String unit = owner != null ? k.unitName(owner.faction) : k.displayName;
+					graphics.setTooltipForNextFrame(this.font, Component.literal(unit + ": " + k.maxStrength + " soldiers, attack " + k.attack
+							+ ", defence " + k.defence + ", speed " + k.speed + ", siege " + k.siege + ". Costs " + k.cost + ", upkeep " + k.upkeep() + "/day."), mouseX, mouseY);
+				}
+			}
+		}
 
 		// costs on hover
 		if (village) {
@@ -300,4 +352,14 @@ public class VillageScreen extends Screen {
 	}
 
 	private String lastBuilding = null;
+
+	private String fitWidth(String text, int width) {
+		String t = text;
+
+		while (t.length() > 1 && this.font.width(t) > width) {
+			t = t.substring(0, t.length() - 1);
+		}
+
+		return t;
+	}
 }

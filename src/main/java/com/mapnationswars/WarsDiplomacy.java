@@ -296,6 +296,7 @@ public final class WarsDiplomacy {
 				if (accepted) {
 					r.war = false;
 					change(from.id, to.id, 5);
+					WarsWar.onPeace(server, from, to);
 				}
 			}
 			case TRIBUTE -> {
@@ -309,20 +310,91 @@ public final class WarsDiplomacy {
 					change(from.id, to.id, -10);
 				}
 			}
-			case WAR -> {
-				r.war = true;
-				r.trade = false;
-				from.allies.remove(to.id);
-				to.allies.remove(from.id);
-				change(from.id, to.id, -40);
+			case WAR -> startWar(server, from, to, true);
+		}
+	}
 
-				// everyone who likes the victim thinks less of the attacker
-				for (NationData other : ServerNations.allNations()) {
-					if (other != from && other != to && opinion(other, to) >= 25) {
-						change(other.id, from.id, -10);
-					}
-				}
+	/**
+	 * Two nations go to war. Everyone who likes the victim thinks less of the attacker,
+	 * and the victim's allies are called to arms: allies ruled by the game join at once, players are asked.
+	 */
+	static void startWar(MinecraftServer server, NationData from, NationData to, boolean callAllies) {
+		Relations.Relation r = relation(from.id, to.id);
+
+		if (r.war) {
+			return;
+		}
+
+		r.war = true;
+		r.trade = false;
+		from.allies.remove(to.id);
+		to.allies.remove(from.id);
+		change(from.id, to.id, -40);
+		WarsWar.onWarStarted(server, from, to);
+
+		for (NationData other : new ArrayList<>(ServerNations.allNations())) {
+			if (other != from && other != to && opinion(other, to) >= 25) {
+				change(other.id, from.id, -10);
 			}
+		}
+
+		if (!callAllies) {
+			return;
+		}
+
+		for (UUID allyId : new ArrayList<>(to.allies)) {
+			NationData ally = ServerNations.nation(allyId);
+
+			if (ally == null || ally == from || atWar(ally.id, from.id)) {
+				continue;
+			}
+
+			if (ally.aiRuled()) {
+				if (opinion(ally, to) >= 30) {
+					startWar(server, ally, from, false);
+					news(server, "\u2694 " + ally.name + " honours its alliance with " + to.name + " and declares war on " + from.name + "!");
+				} else {
+					change(to.id, ally.id, -15); // abandoned by an ally
+				}
+			} else {
+				ServerNations.notifyPlayer(server, ally.leader, "Your ally " + to.name + " was attacked by " + from.name
+						+ "! Declare war in the Letters tab to help them.");
+			}
+		}
+	}
+
+	/** Ends a war (peace letter, or a nation fell). */
+	static void endWar(UUID a, UUID b) {
+		Relations.Relation r = RELATIONS.get(Relations.key(a, b));
+
+		if (r != null && r.war) {
+			r.war = false;
+			r.modifier = Relations.clamp(r.modifier + 5);
+		}
+	}
+
+	/** Every nation this one is at war with. */
+	static List<NationData> enemiesOf(NationData n) {
+		List<NationData> list = new ArrayList<>();
+
+		for (NationData other : ServerNations.allNations()) {
+			if (other != n && atWar(n.id, other.id)) {
+				list.add(other);
+			}
+		}
+
+		return list;
+	}
+
+	/** Changes how much nation a likes nation b (and the other way round: relations are shared). */
+	static void changeOpinion(UUID a, UUID b, int amount) {
+		change(a, b, amount);
+	}
+
+	/** A message in every player's chat. */
+	static void news(MinecraftServer server, String text) {
+		for (ServerPlayer p : PlayerLookup.all(server)) {
+			p.sendSystemMessage(net.minecraft.network.chat.Component.literal(text).withColor(0xFFD27A));
 		}
 	}
 

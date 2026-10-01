@@ -54,13 +54,37 @@ In RP you paint the map yourself. In **WARS** the world is already full of natio
 - **Opinion** (-100 to 100) is how one nation sees another. It starts from faction and ideology: villagers dislike illagers, everyone fears the undead, and similar governments get along. Gifts, trade, alliances and wars then move it, and grudges slowly fade day by day.
 - The **Relations** view in the Letters tab shows how every nation sees yours. Each nation page shows its opinion of you, any war, alliance or trade deal, and a **Write a letter** button.
 
+## War (stage 5)
+- **Raising armies.** Leaders and Ministers raise armies at any province of their nation: right-click it on the map, or talk to its mayor. They are paid from the treasury.
+  - **Infantry** costs 40 emeralds: 100 soldiers, a solid defence.
+  - **Cavalry** costs 70: fast and hits hard.
+  - **Archers** cost 55.
+  - **Siege** costs 90: slow and weak in battle, but takes provinces three times faster.
+  - Every faction names its soldiers its own way: Militia and Lancers, Vindicators and Ravager Riders, Brutes and Hoglin Riders, the Horde and Bone Archers.
+  - A nation can keep 2 armies plus 1 per province. Each army costs upkeep every day.
+- **Commanding.** Officers, Ministers and the leader command armies. In the **Map** tab, left-click one of your armies to pick it, then right-click where it should march. Right-click an enemy province to besiege it, or one of your own to defend it.
+- **The map shows the war.** Army counters show their nation's colour, their kind, soldiers (green bar) and morale (yellow bar). Battles flash with crossed swords, and sieges show a bar with their progress.
+- **Battles.** Armies of nations at war fight when they meet. Morale falls as soldiers fall. Below 15% morale an army retreats to its nearest province, and an army with nowhere to run surrenders.
+- **Sieges.** Each province has a garrison. Villages get villagers with pitchforks; outposts, mansions and bastions are tougher, and capitals are 50% tougher. At 100% the province changes hands, with its land, its villagers and half its emeralds. A nation that loses its last province falls.
+- **You can be there.** Go near a battle or siege your nation is part of, and real enemy soldiers appear:
+  - Villager armies send iron golems.
+  - Illagers send vindicators and pillagers.
+  - The undead send husks and skeletons.
+  - Piglins send brutes, or zombified piglins in the Overworld.
+
+  Every soldier you kill weakens that army (or the defenders of the besieged province) and earns merit. Your side also fights up to 90% harder while you are near.
+- **Calls to arms.** When a nation is attacked, its AI allies who like it enough join the war. Player allies get a message asking for help.
+- **Peace** (a Peace letter) ends the sieges between the two nations and sends their armies home.
+- **Recovery.** Resting armies get their morale back in friendly land and refill their ranks every day at home.
+- The **War** tab lists your armies, your wars and sieges, all battles and all wars in the world. Pick an army there to see it on the map, hold it, send it home or disband it.
+- Wars, battles, captured provinces and fallen nations are announced in chat.
+
 ## Coming next
-5. War: divisions, battles, sieges.
 6. AI nations acting on their own.
 7. Revolts, coups and founding your own nation.
 8. Portals: ruined portals waking up, invasions between the Nether and the Overworld.
 
-Press **M** to open it. The top bar shows **Map Nations WARS** and four tabs: **Map**, **Nations**, **Alliances** and **Letters**.
+Press **M** to open it. The top bar shows **Map Nations WARS** and five tabs: **Map**, **Nations**, **Alliances**, **Letters** and **War**.
 
 ## Map tab
 - **The whole world is visible right away** - no exploring needed. The server works out what places you haven't visited look like (height, water, biomes, forests, snow, mountains) and fills them in, starting from the middle of the view. Places you really visit are then drawn exactly, block by block. The filled-in land is saved, so it shows instantly next time.

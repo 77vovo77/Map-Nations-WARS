@@ -55,12 +55,15 @@ public class MapNationsMod implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(DiplomacySyncPayload.TYPE, DiplomacySyncPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(LetterActionPayload.TYPE, LetterActionPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(TerrainTilesPayload.TYPE, TerrainTilesPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mapnationswars.network.WarSyncPayload.TYPE, com.mapnationswars.network.WarSyncPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.mapnationswars.network.ArmyActionPayload.TYPE, com.mapnationswars.network.ArmyActionPayload.CODEC);
 
 		ServerNations.init();
 		ServerAlliances.init();
 		WarsWorld.init();
 		WarsPolitics.init();
 		WarsDiplomacy.init();
+		WarsWar.init();
 		ServerMarkers.init();
 		ServerPopulation.init();
 		TerrainPreview.init();

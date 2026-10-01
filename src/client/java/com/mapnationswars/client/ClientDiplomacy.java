@@ -82,4 +82,17 @@ public final class ClientDiplomacy {
 
 		return n;
 	}
+
+	/** Every war going on in the world. */
+	public static List<DiplomacySyncPayload.Entry> wars() {
+		List<DiplomacySyncPayload.Entry> list = new java.util.ArrayList<>();
+
+		for (DiplomacySyncPayload.Entry e : RELATIONS.values()) {
+			if (e.war()) {
+				list.add(e);
+			}
+		}
+
+		return list;
+	}
 }

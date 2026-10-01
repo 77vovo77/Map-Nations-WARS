@@ -520,6 +520,32 @@ public final class WarsWorld {
 		}
 	}
 
+	/**
+	 * A province changes hands (conquest, revolt, a new nation). The old nation gets a new capital if needed,
+	 * or falls if it has nothing left. Returns true if the old nation fell.
+	 */
+	static boolean transferProvince(ProvinceData p, UUID nation) {
+		UUID old = p.nation;
+		p.capital = false;
+		giveProvince(p, nation);
+		boolean hasCapital = false;
+
+		for (ProvinceData o : PROVINCES.values()) {
+			hasCapital |= nation.equals(o.nation) && o.capital;
+		}
+
+		if (!hasCapital) {
+			p.capital = true;
+		}
+
+		if (old != null && !old.equals(nation)) {
+			fixNationAfterLoss(old);
+			return ServerNations.nation(old) == null;
+		}
+
+		return false;
+	}
+
 	/** Hands a province (and all its land) to a nation. */
 	private static void giveProvince(ProvinceData p, UUID nation) {
 		p.nation = nation;
@@ -675,7 +701,7 @@ public final class WarsWorld {
 		}
 	}
 
-	private static ServerLevel levelOf(MinecraftServer server, String dimension) {
+	static ServerLevel levelOf(MinecraftServer server, String dimension) {
 		for (ServerLevel level : server.getAllLevels()) {
 			if (level.dimension().identifier().toString().equals(dimension)) {
 				return level;
