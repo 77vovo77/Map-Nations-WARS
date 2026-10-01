@@ -22,28 +22,23 @@ for j in $JARS; do
   unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "(EntityRendererRegistry|FabricDefaultAttributeRegistry|FabricEntityType)\.class$" | sed "s|^|$(basename $j): |" >> $OUT
 done
 p() { echo "== $1" >> $OUT; javap -public -cp "$CP" "$1" 2>&1 | grep -E "${2:-.}" | head -${3:-80} >> $OUT; }
-p net.minecraft.world.entity.npc.villager.Villager "makeBrain|brainProvider|registerGoals|customServerAiStep|getBrain|Brain" 20
-p net.minecraft.world.entity.Mob "goalSelector|targetSelector|getNavigation\(|void setTarget|setNoAi|setPersistenceRequired|void setItemSlot|setDropChance|registerGoals|createMobAttributes|doHurtTarget" 20
-p net.minecraft.world.entity.LivingEntity "hurtServer|void kill|setHealth|getMaxHealth" 10
-p net.minecraft.world.entity.Entity "teleportTo\(double|void discard|void kill|setInvulnerable|setYRot|setGlowingTag|setSilent" 12
-p net.minecraft.world.entity.ai.goal.MeleeAttackGoal "MeleeAttackGoal\(" 3
-p 'net.minecraft.world.entity.EntityType$Builder' "of\(|sized|build\(|clientTrackingRange" 10
-p net.minecraft.world.entity.EntityTypes " VILLAGER;| IRON_GOLEM;| EVOKER;" 5
-p net.minecraft.world.entity.MobCategory "MONSTER|CREATURE|MISC" 5
-p net.minecraft.core.registries.BuiltInRegistries " ENTITY_TYPE;" 3
-p net.minecraft.core.Registry "static.*register\(" 6
-echo "== BedBlock" >> $OUT; javap -p -cp "$CP" net.minecraft.world.level.block.BedBlock 2>&1 | grep -E "PART|FACING" | head -5 >> $OUT
-echo "== HorizontalDirectionalBlock" >> $OUT; javap -p -cp "$CP" net.minecraft.world.level.block.HorizontalDirectionalBlock 2>&1 | grep -E "FACING" | head -3 >> $OUT
-p net.minecraft.world.level.block.Blocks " OAK_PLANKS;| COBBLESTONE;| WHITE_BED;| OAK_DOOR;| FARMLAND;| WHEAT;| CRAFTING_TABLE;| TORCH;| OAK_LOG;| GLASS_PANE;| FURNACE;| WATER;| AIR;| DIRT_PATH;| OAK_FENCE;| RED_WOOL;" 20
-p net.minecraft.world.entity.projectile.arrow.Arrow "Arrow\(" 6
-p net.minecraft.world.entity.projectile.Projectile "void shoot\(" 3
-p net.minecraft.world.entity.monster.piglin.AbstractPiglin "setImmuneToZombification" 2
-p net.minecraft.world.level.Level "boolean setBlock\(" 3
-p net.minecraft.world.level.block.state.StateHolder "setValue" 3
-p net.minecraft.world.level.block.state.properties.DoubleBlockHalf "UPPER|LOWER" 3
-p net.minecraft.world.level.block.state.BlockBehaviour\$BlockStateBase "isAir\(\)|canBeReplaced\(\)|liquid\(\)|isSolid\(\)|blocksMotion" 6
-p net.minecraft.world.level.block.CropBlock "AGE|getStateForAge|getMaxAge" 4
-p net.minecraft.world.entity.npc.villager.VillagerData "with|profession" 8
+p net.minecraft.world.entity.ai.Brain "removeAllBehaviors|stopAll|clearMemories|eraseMemory|setActiveActivity" 8
+p net.minecraft.world.entity.npc.villager.VillagerProfession " ARMORER;| FLETCHER;| CLERIC;| WEAPONSMITH;| NONE;" 6
+p net.minecraft.world.entity.LivingEntity "getAttribute\\(|void swing\\(|setYHeadRot|setYBodyRot" 6
+p net.minecraft.world.entity.ai.attributes.AttributeInstance "setBaseValue" 3
+p net.minecraft.world.level.Level "damageSources\\(" 3
+p net.minecraft.world.damagesource.DamageSources "mobAttack|playerAttack" 4
+p net.minecraft.world.level.block.state.properties.BlockStateProperties " BED_PART;| HORIZONTAL_FACING;| DOUBLE_BLOCK_HALF;| DOOR_HINGE;| AGE_7;" 6
+p net.minecraft.core.registries.BuiltInRegistries " BLOCK;" 3
+p net.minecraft.core.DefaultedRegistry "getValue|get\\(" 6
+p net.minecraft.core.Registry "getValue\\(|getOptional\\(" 6
+p net.minecraft.world.level.block.Blocks "BED" 6
+p net.minecraft.world.item.Items " IRON_SWORD;| BOW;| CROSSBOW;| GOLDEN_SWORD;| ARROW;| BREAD;| GOLDEN_HELMET;" 8
+p net.minecraft.world.item.ItemStack "ItemStack\\(net.minecraft.world.level.ItemLike\\)|ItemStack\\(net.minecraft.world.level.ItemLike, int\\)" 3
+p net.minecraft.world.entity.Entity "distanceTo\\(|getBoundingBox\\(\\)|setPos\\(double" 4
+p net.minecraft.world.entity.npc.villager.Villager "setVillagerData|getVillagerData" 3
+echo "== Villager protected" >> $OUT; javap -protected -cp "$CP" net.minecraft.world.entity.npc.villager.Villager 2>&1 | grep -E "Brain|registerGoals" | head -6 >> $OUT
+echo "== Mob protected" >> $OUT; javap -protected -cp "$CP" net.minecraft.world.entity.Mob 2>&1 | grep -E "goalSelector|targetSelector|registerGoals" | head -5 >> $OUT
 wc -c $OUT
 # emit as annotations (chunks)
 split -b 3500 $OUT chunk_
