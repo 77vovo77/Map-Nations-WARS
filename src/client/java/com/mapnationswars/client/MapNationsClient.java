@@ -29,11 +29,25 @@ public class MapNationsClient implements ClientModInitializer {
 			SDLScancode.SDL_SCANCODE_M,
 			CATEGORY));
 
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static HelmetLayer helmetLayer(net.minecraft.client.renderer.entity.LivingEntityRenderer<?, ?, ?> renderer, net.minecraft.client.renderer.entity.EntityRendererProvider.Context context) {
+		return new HelmetLayer((net.minecraft.client.renderer.entity.RenderLayerParent) renderer, context);
+	}
+
 	@Override
 	public void onInitializeClient() {
 		TerritoryHud.register();
 		WarsHud.register();
 		Minimap.register();
+
+		// 2.2.1: villager and illager soldiers show their helmet (vanilla never draws armour on them)
+		net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
+			Object model = renderer.getModel();
+
+			if (model instanceof net.minecraft.client.model.npc.VillagerModel || model instanceof net.minecraft.client.model.monster.illager.IllagerModel<?>) {
+				helper.register(helmetLayer(renderer, context));
+			}
+		});
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			// Keeps drawing the explored terrain into the map (and saves / unloads it when you leave).

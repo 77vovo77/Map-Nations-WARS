@@ -4,7 +4,9 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"PlayerDisplayNameMixin",
-		"PlayerTabNameMixin"
+		"PlayerTabNameMixin",
+		"LivingRenderStateMixin",
+		"LivingRendererHelmetMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
