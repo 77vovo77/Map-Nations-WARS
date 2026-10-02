@@ -135,7 +135,7 @@ public final class WarsDiplomacy {
 	// ---------------------------------------------------------------- letters
 
 	private static boolean canWrite(NationData n, UUID player) {
-		return n != null && (n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.MINISTER));
+		return n != null && (WarsCreative.on(player) || n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.MINISTER));
 	}
 
 	private static void handle(MinecraftServer server, ServerPlayer player, LetterActionPayload a) {

@@ -115,7 +115,7 @@ public final class ClientWar {
 	/** Can this player give orders to the division? (Officers and up, like the server checks.) */
 	public static boolean canCommand(DivisionData d, UUID player) {
 		NationData n = ClientNations.get(d.nation);
-		return n != null && (n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.OFFICER));
+		return n != null && (ClientCreative.active() || n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.OFFICER));
 	}
 
 	public static int strengthColor(DivisionData d) {

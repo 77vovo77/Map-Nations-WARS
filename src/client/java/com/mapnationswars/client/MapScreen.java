@@ -237,6 +237,10 @@ public class MapScreen extends MapNationsBaseScreen {
 			this.viewMenuBottom = vy + 16 + labels.size() * 22 + 2;
 		}
 
+		if (!this.claimMode && this.editingArea == null && ClientCreative.creativePlayer()) {
+			this.addCreativePanel();
+		}
+
 		this.applyButton = null;
 		this.resetButton = null;
 		this.cancelButton = null;
@@ -257,6 +261,190 @@ public class MapScreen extends MapNationsBaseScreen {
 			this.centerX = this.minecraft.player.getX();
 			this.centerZ = this.minecraft.player.getZ();
 		}
+	}
+
+	// ---------------------------------------------------------------- CREATIVEMOD (2.3)
+
+	private static final int CREATIVE_W = 128;
+	private static final int CREATIVE_ROWS = 10;
+
+	/** Called when the server switches CREATIVEMOD on or off. */
+	public void refresh() {
+		this.rebuildWidgets();
+	}
+
+	/** True when the creative panel needs the space of the nation box in the top-left corner. */
+	private boolean creativeHidesStats() {
+		return ClientCreative.active() && TOP_BAR + 90 + CREATIVE_ROWS * 20 > this.height - 40;
+	}
+
+	private int creativeTop() {
+		return this.creativeHidesStats() ? TOP_BAR + 6 : TOP_BAR + 90;
+	}
+
+	private void addCreativePanel() {
+		int x = 6;
+		int y = this.creativeTop();
+		boolean on = ClientCreative.active();
+		this.addRenderableWidget(Button.builder(Component.literal("CREATIVEMOD: " + (on ? "ON" : "OFF")).withColor(on ? 0xFFD54F : 0xBBBBBB),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.TOGGLE, "")).pos(x, y).size(CREATIVE_W, 18).build());
+
+		if (!on) {
+			return;
+		}
+
+		y += 20;
+		NationData n = ClientCreative.picked();
+		this.addRenderableWidget(Button.builder(Component.literal("\u25C0"), b -> {
+			ClientCreative.nation = ClientCreative.cycle(ClientCreative.nation, -1, null);
+			this.rebuildWidgets();
+		}).pos(x, y).size(18, 18).build());
+		this.addRenderableWidget(Button.builder(n == null ? Component.literal("no nations") : Component.literal(this.fit(n.name, 84)).withColor(n.color), b -> {
+			if (ClientCreative.nation != null) {
+				this.zoomToNation(ClientCreative.nation);
+			}
+		}).pos(x + 20, y).size(88, 18).build());
+		this.addRenderableWidget(Button.builder(Component.literal("\u25B6"), b -> {
+			ClientCreative.nation = ClientCreative.cycle(ClientCreative.nation, 1, null);
+			this.rebuildWidgets();
+		}).pos(x + 110, y).size(18, 18).build());
+		y += 20;
+
+		// the tools: a click on the map does what the picked tool says
+		ClientCreative.Tool[] tools = {ClientCreative.Tool.PAINT, ClientCreative.Tool.ERASE, ClientCreative.Tool.GIVE, ClientCreative.Tool.BOOST,
+			ClientCreative.Tool.SPAWN, ClientCreative.Tool.MOVE, ClientCreative.Tool.DELETE};
+		String[] names = {"\u270E Paint", "\u2716 Erase", "\u2691 Give", "\u25B2 Boost",
+			"\u2694 " + ClientCreative.kind.displayName, "\u279C Move", "\u2620 Delete"};
+
+		for (int i = 0; i < tools.length; i++) {
+			ClientCreative.Tool t = tools[i];
+			boolean picked = ClientCreative.tool == t;
+			this.addRenderableWidget(Button.builder(Component.literal(names[i]).withColor(picked ? 0xFFE070 : 0xFFFFFF), b -> {
+				if (t == ClientCreative.Tool.SPAWN && ClientCreative.tool == t) {
+					// clicking the army tool again picks the next kind of army
+					ClientCreative.kind = com.mapnationswars.nation.DivisionData.Kind.values()[(ClientCreative.kind.ordinal() + 1)
+							% com.mapnationswars.nation.DivisionData.Kind.values().length];
+				} else {
+					ClientCreative.tool = ClientCreative.tool == t ? ClientCreative.Tool.NONE : t;
+				}
+
+				ClientCreative.moving = null;
+
+				if (ClientCreative.tool != ClientCreative.Tool.NONE) {
+					ClientNations.setStatus(ClientCreative.hint() + (t == ClientCreative.Tool.SPAWN ? " (click the button again for another kind)" : "")
+							+ " Right-click to stop.", true);
+				}
+
+				this.rebuildWidgets();
+			}).pos(x + (i % 2) * 66, y + (i / 2) * 20).size(62, 18).build());
+		}
+
+		y += 80;
+
+		// things that happen at once, to the picked nation
+		this.addRenderableWidget(Button.builder(Component.literal("\u265A Lead it").withColor(0xFFD54F),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.LEAD, "")).pos(x, y).size(62, 18).build());
+		this.addRenderableWidget(Button.builder(Component.literal("\u2618 Calm all"),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.CALM, "")).pos(x + 66, y).size(62, 18).build());
+		y += 20;
+		this.addRenderableWidget(Button.builder(Component.literal("+1000 \u2666").withColor(0x9CFF9C),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.TREASURY, "", 1000, 0, 0, 0)).pos(x, y).size(62, 18).build());
+		this.addRenderableWidget(Button.builder(Component.literal("-1000 \u2666").withColor(0xFF9C9C),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.TREASURY, "", -1000, 0, 0, 0)).pos(x + 66, y).size(62, 18).build());
+		y += 20;
+
+		// war, peace and alliances with a second nation
+		NationData o = ClientCreative.pickedOther();
+		this.addRenderableWidget(Button.builder(Component.literal("\u25C0"), b -> {
+			ClientCreative.other = ClientCreative.cycle(ClientCreative.other, -1, ClientCreative.nation);
+			this.rebuildWidgets();
+		}).pos(x, y).size(18, 18).build());
+		this.addRenderableWidget(Button.builder(o == null ? Component.literal("-") : Component.literal(this.fit("with " + o.name, 84)).withColor(o.color),
+				b -> {
+					if (ClientCreative.other != null) {
+						this.zoomToNation(ClientCreative.other);
+					}
+				}).pos(x + 20, y).size(88, 18).build());
+		this.addRenderableWidget(Button.builder(Component.literal("\u25B6"), b -> {
+			ClientCreative.other = ClientCreative.cycle(ClientCreative.other, 1, ClientCreative.nation);
+			this.rebuildWidgets();
+		}).pos(x + 110, y).size(18, 18).build());
+		y += 20;
+		String otherId = o != null ? o.id.toString() : "";
+		this.addRenderableWidget(Button.builder(Component.literal("\u2694 War").withColor(0xFF7060),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.WAR, otherId)).pos(x, y).size(41, 18).build());
+		this.addRenderableWidget(Button.builder(Component.literal("Peace").withColor(0x9CFF9C),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.PEACE, otherId)).pos(x + 43, y).size(42, 18).build());
+		this.addRenderableWidget(Button.builder(Component.literal("Ally").withColor(0x9CC8FF),
+				b -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.ALLY, otherId)).pos(x + 87, y).size(41, 18).build());
+	}
+
+	/** Shortens a text so it fits in a button. */
+	private String fit(String text, int width) {
+		if (this.font.width(text) <= width) {
+			return text;
+		}
+
+		String t = text;
+
+		while (t.length() > 1 && this.font.width(t + "..") > width) {
+			t = t.substring(0, t.length() - 1);
+		}
+
+		return t + "..";
+	}
+
+	/** A click on the map with a creative tool picked. Returns true if the tool used it. */
+	private boolean creativeClick(String dim, double mx, double my) {
+		if (!ClientCreative.active() || ClientCreative.tool == ClientCreative.Tool.NONE) {
+			return false;
+		}
+
+		int bx = Mth.floor(this.toWorldX(mx));
+		int bz = Mth.floor(this.toWorldZ(my));
+
+		switch (ClientCreative.tool) {
+			case GIVE, BOOST -> {
+				MarkerData m = this.markerAt(dim, mx, my);
+
+				if (m == null || m.province == null) {
+					ClientNations.setStatus("Click right on a village, outpost or castle.", false);
+				} else {
+					ClientCreative.send(ClientCreative.tool == ClientCreative.Tool.GIVE ? com.mapnationswars.network.CreativeActionPayload.GIVE_PROVINCE
+							: com.mapnationswars.network.CreativeActionPayload.BOOST, m.province.id.toString());
+				}
+			}
+			case SPAWN -> ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.SPAWN_ARMY, ClientCreative.kind.name(), bx, bz, 0, 0);
+			case DELETE -> {
+				com.mapnationswars.nation.DivisionData d = WarMap.divisionAt(this.projection, dim, mx, my);
+
+				if (d == null) {
+					ClientNations.setStatus("Click right on an army.", false);
+				} else {
+					ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.DELETE_ARMY, d.id.toString());
+				}
+			}
+			case MOVE -> {
+				if (ClientCreative.moving == null) {
+					com.mapnationswars.nation.DivisionData d = WarMap.divisionAt(this.projection, dim, mx, my);
+
+					if (d == null) {
+						ClientNations.setStatus("Click right on an army first.", false);
+					} else {
+						ClientCreative.moving = d.id;
+						ClientNations.setStatus(d.name + " picked up. Click where it should be.", true);
+					}
+				} else {
+					ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.TELEPORT_ARMY, ClientCreative.moving.toString(), bx, bz, 0, 0);
+					ClientCreative.moving = null;
+				}
+			}
+			default -> {
+				return false; // painting is a drag, see mouseReleased
+			}
+		}
+
+		return true;
 	}
 
 	private boolean showPolitical() {
@@ -321,7 +509,7 @@ public class MapScreen extends MapNationsBaseScreen {
 
 	/** Your nation at a glance, in the top-left corner (2.0). */
 	private void drawNationStats(GuiGraphicsExtractor graphics) {
-		if (this.claimMode && this.editingArea != null) {
+		if (this.claimMode && this.editingArea != null || this.creativeHidesStats()) {
 			return;
 		}
 
@@ -1807,7 +1995,9 @@ public class MapScreen extends MapNationsBaseScreen {
 
 		// Claims tab: left / right button starts a claim / unclaim rectangle (middle button moves the map)
 		this.selecting = (this.claimMode || this.editingArea != null) && this.placingType == null && this.movingMarker == null
-				&& (click.input() == SDLMouse.SDL_BUTTON_LEFT || click.input() == SDLMouse.SDL_BUTTON_RIGHT);
+				&& (click.input() == SDLMouse.SDL_BUTTON_LEFT || click.input() == SDLMouse.SDL_BUTTON_RIGHT)
+				|| ClientCreative.paints() && this.editingArea == null && this.placingType == null && this.movingMarker == null
+				&& click.input() == SDLMouse.SDL_BUTTON_LEFT;
 
 		if (this.selecting) {
 			this.selFromX = this.chunkXAt(click.x());
@@ -1851,6 +2041,12 @@ public class MapScreen extends MapNationsBaseScreen {
 		boolean wasSelecting = this.selecting;
 		this.selecting = false;
 
+		// CREATIVEMOD: paint / erase the rectangle (a click without dragging paints one chunk)
+		if (wasSelecting && ClientCreative.paints() && this.editingArea == null && !this.claimMode) {
+			ClientCreative.send(com.mapnationswars.network.CreativeActionPayload.PAINT, "", this.selFromX, this.selFromZ, this.selToX, this.selToZ);
+			return true;
+		}
+
 		if (wasSelecting && this.editingArea != null) {
 			// editing borders: add (left) or remove (right) the chunks in the rectangle
 			this.editArea(this.selFromX, this.selFromZ, this.selToX, this.selToZ, this.pressButton == SDLMouse.SDL_BUTTON_LEFT);
@@ -1868,6 +2064,19 @@ public class MapScreen extends MapNationsBaseScreen {
 		}
 
 		String dim = this.dimensionId();
+
+		if (click.input() == SDLMouse.SDL_BUTTON_RIGHT && ClientCreative.active() && ClientCreative.tool != ClientCreative.Tool.NONE) {
+			ClientCreative.tool = ClientCreative.Tool.NONE; // right-click puts the creative tool away
+			ClientCreative.moving = null;
+			ClientNations.setStatus("Creative tool put away.", true);
+			this.rebuildWidgets();
+			return true;
+		}
+
+		if (click.input() == SDLMouse.SDL_BUTTON_LEFT && this.placingType == null && this.movingMarker == null && this.editingArea == null
+				&& !this.claimMode && this.creativeClick(dim, click.x(), click.y())) {
+			return true;
+		}
 
 		if (click.input() == SDLMouse.SDL_BUTTON_RIGHT) {
 			if (this.placingType != null || this.movingMarker != null) {

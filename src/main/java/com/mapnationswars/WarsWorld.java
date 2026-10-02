@@ -171,7 +171,7 @@ public final class WarsWorld {
 				boolean inPerson = action != com.mapnationswars.network.VillageActionPayload.ORDER;
 
 				// emeralds change hands in person; orders can be given from the map
-				if (inPerson && (!player.level().dimension().identifier().toString().equals(p.dimension)
+				if (inPerson && !WarsCreative.on(player) && (!player.level().dimension().identifier().toString().equals(p.dimension)
 						|| Math.hypot(player.getX() - p.x, player.getZ() - p.z) > 96)) {
 					ServerNations.status(player, "Go to " + p.name + " and talk to its mayor.", false);
 					return;

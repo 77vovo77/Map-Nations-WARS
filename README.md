@@ -137,6 +137,24 @@ Nations ruled by the game now act on their own.
 - **Invasions both ways.** Armies can march through open rifts and through any portal players built. Pick an army in the War tab and press **Through a portal**: it marches to the nearest usable portal and comes out on the other side, at the same place divided by 8 in the Nether.
   - The AI uses portals too. Piglin clans at war with Overworld nations come through, and Overworld nations at war with piglins invade the Nether to besiege their bastions.
 
+## 2.3.0 - CREATIVEMOD
+
+In creative mode, open the map (M): a **CREATIVEMOD** button is on the left. Switch it on and the rules of the mod no longer apply to you:
+
+- You command every army and give orders to every village, raising and hiring armies is free, and emeralds are never taken from you.
+- Pick a nation with the arrows (click its name to fly there), then use the tools - right-click puts a tool away:
+  - **Paint** / **Erase**: drag on the map to give land to the nation, or make it nobody's.
+  - **Give**: click a village, outpost or castle and it belongs to the nation.
+  - **Boost**: click a village for more villagers, houses, farms and workshops.
+  - **Army**: click the map and a full army of the nation appears (click the button again for cavalry, archers, siege).
+  - **Move**: click an army, then click where it should be - it is there at once.
+  - **Delete**: click an army and it vanishes.
+- **Lead it**: you become the leader of the nation (and leave your own).
+- **Calm all**: no unrest, happy and fed in every province of the nation. **+1000 / -1000**: the treasury.
+- Pick a second nation ("with ...") for **War**, **Peace** or **Ally**.
+
+Leaving creative mode switches CREATIVEMOD off.
+
 ## 2.2.1 - Helmets you can see
 
 - Villager and illager soldiers now visibly wear their leather helmet in the nation's colour. Vanilla Minecraft never draws armour on villagers or illagers, so the mod adds that layer (stretched a bit to fit their taller heads).

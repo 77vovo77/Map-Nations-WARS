@@ -330,7 +330,7 @@ public final class ServerNations {
 		return list == null || list.isEmpty() ? null : NATIONS.get(list.get(0));
 	}
 
-	private static void disband(NationData nation) {
+	static void disband(NationData nation) {
 		NATIONS.remove(nation.id);
 		ServerAlliances.onNationDisbanded(nation.id);
 		ServerMarkers.onNationDisbanded(nation.id);

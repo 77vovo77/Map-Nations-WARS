@@ -267,11 +267,11 @@ public final class WarsWar {
 	}
 
 	static boolean canCommand(NationData n, UUID player) {
-		return n != null && (n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.OFFICER));
+		return n != null && (WarsCreative.on(player) || n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.OFFICER));
 	}
 
 	static boolean canRaise(NationData n, UUID player) {
-		return n != null && (n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.MINISTER));
+		return n != null && (WarsCreative.on(player) || n.leader.equals(player) || (n.isMember(player) && n.rankOf(player) >= Ranks.MINISTER));
 	}
 
 	private static boolean friendly(UUID a, UUID b) {
@@ -399,6 +399,10 @@ public final class WarsWar {
 					return;
 				}
 
+				if (WarsCreative.on(player)) {
+					n.treasury += (long) Math.max(1, a.x()) * d.kind.hirePrice; // CREATIVEMOD: free
+				}
+
 				String problem = hire(n, d, Math.max(1, a.x()));
 
 				if (problem != null) {
@@ -487,7 +491,11 @@ public final class WarsWar {
 			return;
 		}
 
-		String problem = raiseProblem(n, p, kind);
+		if (n != null && WarsCreative.on(player)) {
+			n.treasury += kind.cost; // CREATIVEMOD: free
+		}
+
+		String problem = n != null && WarsCreative.on(player) && !p.abandoned ? null : raiseProblem(n, p, kind);
 
 		if (problem != null) {
 			ServerNations.status(player, problem, false);

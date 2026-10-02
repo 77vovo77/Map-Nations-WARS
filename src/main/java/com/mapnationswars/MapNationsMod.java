@@ -44,6 +44,8 @@ public class MapNationsMod implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(MarkerAreaPayload.TYPE, MarkerAreaPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TerrainRequestPayload.TYPE, TerrainRequestPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(AllianceActionPayload.TYPE, AllianceActionPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.mapnationswars.network.CreativeActionPayload.TYPE, com.mapnationswars.network.CreativeActionPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mapnationswars.network.CreativeSyncPayload.TYPE, com.mapnationswars.network.CreativeSyncPayload.CODEC);
 		// server -> client
 		PayloadTypeRegistry.clientboundPlay().register(NationsSyncPayload.TYPE, NationsSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PlayersPayload.TYPE, PlayersPayload.CODEC);
@@ -78,6 +80,7 @@ public class MapNationsMod implements ModInitializer {
 		WarsLand.init();
 		WarsTroops.init();
 		WarsTeams.init();
+		WarsCreative.init();
 		WarsKings.init();
 		WarsBuild.init();
 		ServerMarkers.init();

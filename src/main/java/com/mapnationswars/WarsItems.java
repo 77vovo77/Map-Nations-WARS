@@ -13,6 +13,10 @@ final class WarsItems {
 
 	/** How many emeralds the player carries. */
 	static int countEmeralds(ServerPlayer player) {
+		if (WarsCreative.on(player)) {
+			return 1_000_000; // CREATIVEMOD: as many as you like
+		}
+
 		int count = 0;
 
 		for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
@@ -26,6 +30,10 @@ final class WarsItems {
 
 	/** Takes up to `amount` emeralds from the inventory (amount <= 0 = all of them). Returns how many were taken. */
 	static int takeEmeralds(ServerPlayer player, int amount) {
+		if (WarsCreative.on(player) && amount > 0) {
+			return amount; // CREATIVEMOD: paid, but nothing leaves your pockets
+		}
+
 		List<ItemStack> items = player.getInventory().getNonEquipmentItems();
 		int wanted = amount <= 0 ? Integer.MAX_VALUE : amount;
 		int taken = 0;

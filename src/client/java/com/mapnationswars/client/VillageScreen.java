@@ -54,7 +54,7 @@ public class VillageScreen extends Screen {
 
 		NationData n = ClientNations.get(p.nation);
 		UUID me = this.minecraft.player.getUUID();
-		return (n != null && (n.leader.equals(me)
+		return (n != null && (ClientCreative.active() || n.leader.equals(me)
 				|| (n.isMember(me) && n.rankOf(me) >= com.mapnationswars.nation.Ranks.MINISTER)));
 	}
 

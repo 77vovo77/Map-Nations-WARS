@@ -365,7 +365,7 @@ public final class WarsEconomy {
 	/** Who may give orders to a village: only its own nation's leader and Ministers. */
 	static boolean canOrder(ServerPlayer player, ProvinceData p) {
 		NationData n = ServerNations.nation(p.nation);
-		return (n != null && (n.leader.equals(player.getUUID())
+		return (n != null && (WarsCreative.on(player) || n.leader.equals(player.getUUID())
 				|| (n.isMember(player.getUUID()) && n.rankOf(player.getUUID()) >= com.mapnationswars.nation.Ranks.MINISTER)));
 	}
 

@@ -136,7 +136,7 @@ public final class WarsLand {
 	// ---------------------------------------------------------------- players claim on the map
 
 	private static boolean mayClaim(NationData n, ServerPlayer player) {
-		return n != null && (n.leader.equals(player.getUUID()) || n.rankOf(player.getUUID()) >= Ranks.MINISTER);
+		return n != null && (WarsCreative.on(player) || n.leader.equals(player.getUUID()) || n.rankOf(player.getUUID()) >= Ranks.MINISTER);
 	}
 
 	/** The province of this nation whose centre is closest to the chunk (within reach), or null. */

@@ -86,6 +86,14 @@ public class MapNationsClient implements ClientModInitializer {
 				context.client().execute(() -> ClientPortals.apply(payload)));
 		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.PersonalSyncPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> ClientPersonal.apply(payload)));
+		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.CreativeSyncPayload.TYPE, (payload, context) ->
+				context.client().execute(() -> {
+					ClientCreative.apply(payload.on());
+
+					if (context.client().gui.screen() instanceof MapScreen map) {
+						map.refresh();
+					}
+				}));
 		ClientPlayNetworking.registerGlobalReceiver(com.mapnationswars.network.CourtPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> context.client().gui.setScreen(new CourtScreen(payload.nation(), payload.greeting()))));
 

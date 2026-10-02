@@ -70,7 +70,7 @@ public class WarScreen extends PagedScreen {
 		int y = this.bottom() - 30;
 		boolean command = ClientWar.canCommand(d, this.me());
 		NationData n = ClientNations.get(d.nation);
-		boolean raise = n != null && (n.leader.equals(this.me()) || n.rankOf(this.me()) >= Ranks.MINISTER);
+		boolean raise = n != null && (ClientCreative.active() || n.leader.equals(this.me()) || n.rankOf(this.me()) >= Ranks.MINISTER);
 		List<ButtonSpec> buttons = new ArrayList<>();
 		buttons.add(new ButtonSpec("Show on map", 84, b -> {
 			MapScreen.focus(d.x, d.z);
