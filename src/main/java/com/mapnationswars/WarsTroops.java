@@ -49,7 +49,8 @@ public final class WarsTroops {
 	private static final double ENGAGE = 24;
 
 	/** group = the division (or the besieged province, for its defenders) */
-	private record Troop(UUID group, UUID nation, String dimension, boolean garrison, boolean archer, boolean villager, int slot, int perTroop) {
+	private record Troop(UUID group, UUID nation, String dimension, boolean garrison, boolean archer, boolean villager, int slot, int perTroop,
+			boolean captain) {
 	}
 
 	private static final Map<UUID, Troop> TROOPS = new HashMap<>();
@@ -88,6 +89,24 @@ public final class WarsTroops {
 			dropBoat(entity.level() instanceof ServerLevel sl ? sl : null, entity.getUUID());
 			LAST_POS.remove(entity.getUUID());
 			STUCK.remove(entity.getUUID());
+
+			POTIONS.remove(entity.getUUID());
+			DRINKING.remove(entity.getUUID());
+			WarsTeams.leave(entity.level().getServer(), entity);
+
+			if (t.captain()) {
+				DivisionData cd = WarsWar.division(t.group());
+
+				if (cd != null) {
+					cd.morale = Math.max(0, cd.morale - 15); // they lost their captain
+				}
+
+				for (ServerPlayer pl : PlayerLookup.all(entity.level().getServer())) {
+					if (pl.level() == entity.level() && pl.distanceTo(entity) < 64) {
+						pl.sendSystemMessage(Component.literal("\u265A The captain of " + (cd != null ? cd.name : "an army") + " has fallen!").withColor(0xFFB060));
+					}
+				}
+			}
 
 			if (t.garrison()) {
 				WarsWar.garrisonKilled(t.group());
@@ -254,14 +273,16 @@ public final class WarsTroops {
 		}
 
 		int y = nether ? floor(nearestPlayerY(level, x, z)) : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-		String type = kind.troopType(n.faction, nether);
+		// the first of every division is its captain: always a foot soldier of the nation, carrying its banner
+		boolean captain = !garrison && slot == 0;
+		String type = (captain ? DivisionData.Kind.INFANTRY : kind).troopType(n.faction, nether);
 		Mob mob = WarsWar.spawnMob(level, type, x, y, z);
 
 		if (mob == null) {
 			return;
 		}
 
-		boolean archer = kind == DivisionData.Kind.ARCHERS;
+		boolean archer = kind == DivisionData.Kind.ARCHERS && !captain;
 		boolean villager = mob instanceof Villager;
 
 		if (mob instanceof Villager v) {
@@ -288,17 +309,103 @@ public final class WarsTroops {
 			// not a piglin
 		}
 
-		// the undead wear helmets so the sun doesn't burn them
-		if (n.faction == com.mapnationswars.nation.Faction.UNDEAD) {
-			mob.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.CHAINMAIL_HELMET));
-			mob.setDropChance(EquipmentSlot.HEAD, 0f);
+		// the captain wears the nation's banner; everyone else a helmet in the nation's colour (it also keeps the undead from burning)
+		mob.setItemSlot(EquipmentSlot.HEAD, captain ? banner(n) : helmet(n.color));
+		mob.setDropChance(EquipmentSlot.HEAD, 0f);
+		mob.setDropChance(EquipmentSlot.MAINHAND, 0f);
+		mob.setDropChance(EquipmentSlot.OFFHAND, 0f);
+		mob.setPersistenceRequired();
+		DivisionData d = WarsWar.division(group);
+
+		if (captain) {
+			setHealth(mob, 40);
+			mob.setCustomName(Component.literal("\u265A Captain of " + (d != null ? d.name : n.name)).withColor(n.color));
+			mob.setCustomNameVisible(true);
+		} else {
+			mob.setCustomName(Component.literal(WarsWar.soldierPrefix() + (garrison ? "Defender" : kind.unitName(n.faction))).withColor(n.color));
+			mob.setCustomNameVisible(false);
 		}
 
-		mob.setDropChance(EquipmentSlot.MAINHAND, 0f);
-		mob.setPersistenceRequired();
-		mob.setCustomName(Component.literal(WarsWar.soldierPrefix() + (garrison ? "Defender" : kind.unitName(n.faction))).withColor(n.color));
-		mob.setCustomNameVisible(false);
-		TROOPS.put(mob.getUUID(), new Troop(group, n.id, level.dimension().identifier().toString(), garrison, archer, villager, slot, kind.perTroop));
+		WarsTeams.join(level.getServer(), mob, n);
+		TROOPS.put(mob.getUUID(), new Troop(group, n.id, level.dimension().identifier().toString(), garrison, archer, villager, slot, kind.perTroop, captain));
+		POTIONS.put(mob.getUUID(), 2);
+	}
+
+	private static final Map<UUID, Integer> POTIONS = new HashMap<>();
+	/** troop -> game time to put the potion bottle away */
+	private static final Map<UUID, Long> DRINKING = new HashMap<>();
+
+	private static ItemStack helmet(int rgb) {
+		ItemStack helmet = new ItemStack(Items.LEATHER_HELMET);
+
+		try {
+			helmet.set(net.minecraft.core.component.DataComponents.DYED_COLOR, new net.minecraft.world.item.component.DyedItemColor(rgb & 0xFFFFFF));
+		} catch (RuntimeException ignored) {
+			// plain leather
+		}
+
+		return helmet;
+	}
+
+	private static final String[] DYES = {"white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan",
+		"purple", "blue", "brown", "green", "red", "black"};
+	private static final int[] DYE_RGB = {0xF9FFFE, 0xF9801D, 0xC74EBD, 0x3AB3DA, 0xFED83D, 0x80C71F, 0xF38BAA, 0x474F52, 0x9D9D97, 0x169C9C,
+		0x8932B8, 0x3C44AA, 0x835432, 0x5E7C16, 0xB02E26, 0x1D1D21};
+
+	/** The nation's banner - or, if it has none, a banner of the colour closest to the nation's. */
+	private static ItemStack banner(NationData n) {
+		if (n.banner != null && !n.banner.isEmpty()) {
+			return n.banner.copyWithCount(1);
+		}
+
+		int best = 0;
+		double bestD = Double.MAX_VALUE;
+
+		for (int i = 0; i < DYE_RGB.length; i++) {
+			int c = DYE_RGB[i];
+			double d = Math.pow((c >> 16 & 0xFF) - (n.color >> 16 & 0xFF), 2) + Math.pow((c >> 8 & 0xFF) - (n.color >> 8 & 0xFF), 2)
+					+ Math.pow((c & 0xFF) - (n.color & 0xFF), 2);
+
+			if (d < bestD) {
+				bestD = d;
+				best = i;
+			}
+		}
+
+		try {
+			net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(
+					net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", DYES[best] + "_banner"));
+			return item != null && item != Items.AIR ? new ItemStack(item) : helmet(n.color);
+		} catch (RuntimeException e) {
+			return helmet(n.color);
+		}
+	}
+
+	/** Which nation a soldier fights for (null = not one of ours). */
+	static UUID nationOf(UUID entity) {
+		Troop t = TROOPS.get(entity);
+		return t == null ? null : t.nation();
+	}
+
+	/** A hurt soldier drinks a healing potion (two each). */
+	private static void drink(MinecraftServer server, Mob mob) {
+		UUID id = mob.getUUID();
+		long now = server.overworld().getGameTime();
+		Long until = DRINKING.get(id);
+
+		if (until != null && now >= until) {
+			mob.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+			DRINKING.remove(id);
+		}
+
+		int left = POTIONS.getOrDefault(id, 0);
+
+		if (left > 0 && until == null && mob.getHealth() < mob.getMaxHealth() * 0.4f) {
+			POTIONS.put(id, left - 1);
+			mob.heal(Math.max(8f, mob.getMaxHealth() * 0.5f));
+			mob.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.POTION));
+			DRINKING.put(id, now + 40);
+		}
 	}
 
 	private static double nearestPlayerY(ServerLevel level, int x, int z) {
@@ -346,6 +453,19 @@ public final class WarsTroops {
 		}
 
 		LivingEntity enemy = enemyNear(server, level, mob, t);
+		drink(server, mob);
+		mob.setGlowingTag(enemy != null); // in battle: everyone outlined in the colour of their nation's team
+
+		// never keep after a friend (the game's own AI sometimes picks one)
+		LivingEntity current0 = mob.getTarget();
+
+		if (current0 != null && enemy == null) {
+			UUID side = WarsTeams.nationOfMob(current0.getUUID());
+
+			if (side != null && !WarsWar.hostile(t.nation(), side)) {
+				mob.setTarget(null);
+			}
+		}
 
 		if (t.villager()) {
 			if (enemy != null) {
@@ -535,15 +655,15 @@ public final class WarsTroops {
 
 	/** Villager soldiers: walk up and strike with the sword, or keep a distance and shoot. */
 	private static void villagersFight(MinecraftServer server) {
-		for (Iterator<Map.Entry<UUID, UUID>> it = ENGAGED.entrySet().iterator(); it.hasNext(); ) {
-			Map.Entry<UUID, UUID> e = it.next();
+		// a copy: a strike can kill a soldier, and its death removes it from these maps (that crashed the server in 2.1.0)
+		for (Map.Entry<UUID, UUID> e : new ArrayList<>(ENGAGED.entrySet())) {
 			Troop t = TROOPS.get(e.getKey());
 			ServerLevel level = t != null ? WarsWorld.levelOf(server, t.dimension()) : null;
 			Entity self = level != null ? level.getEntity(e.getKey()) : null;
 			Entity target = level != null ? level.getEntity(e.getValue()) : null;
 
 			if (!(self instanceof Mob mob) || !(target instanceof LivingEntity enemy) || !enemy.isAlive() || !mob.isAlive()) {
-				it.remove();
+				ENGAGED.remove(e.getKey());
 				continue;
 			}
 
@@ -586,8 +706,12 @@ public final class WarsTroops {
 		Entity e = level.getEntity(id);
 
 		if (e != null) {
+			WarsTeams.leave(level.getServer(), e);
 			e.discard();
 		}
+
+		POTIONS.remove(id);
+		DRINKING.remove(id);
 
 		dropBoat(level, id);
 		LAST_POS.remove(id);

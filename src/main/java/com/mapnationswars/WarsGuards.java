@@ -208,10 +208,16 @@ public final class WarsGuards {
 			mob.setDropChance(net.minecraft.world.entity.EquipmentSlot.HEAD, 0f);
 		}
 
+		WarsTeams.join(server, mob, n);
 		mob.setCustomName(Component.literal(WarsWar.soldierPrefix() + "Guard of " + p.name).withColor(n.color));
 		mob.setCustomNameVisible(true);
 		mob.setTarget(target);
 		GUARDS.put(mob.getUUID(), new Guard(p.id, n.id, target.getUUID(), p.dimension));
+	}
+
+	static UUID nationOf(UUID entity) {
+		Guard g = GUARDS.get(entity);
+		return g == null ? null : g.nation();
 	}
 
 	private static ServerPlayer player(MinecraftServer server, UUID id) {

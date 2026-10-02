@@ -137,6 +137,17 @@ Nations ruled by the game now act on their own.
 - **Invasions both ways.** Armies can march through open rifts and through any portal players built. Pick an army in the War tab and press **Through a portal**: it marches to the nearest usable portal and comes out on the other side, at the same place divided by 8 in the Nether.
   - The AI uses portals too. Piglin clans at war with Overworld nations come through, and Overworld nations at war with piglins invade the Nether to besiege their bastions.
 
+## 2.2.0 - Better battles
+- **Fixed:** a crash ("ConcurrentModificationException" in the server tick) when a villager soldier killed an enemy. Left-over soldiers from before a restart are now removed one tick after their chunk loads, not while it loads.
+- **Friends can't hurt each other.** Soldiers, guards and kings are in their nation's team:
+  - Soldiers of the same or allied nations never damage each other, and the game's own mob AI doesn't pick comrades as targets.
+  - Soldiers only hurt players who are their enemies. You can't hurt your own nation's soldiers.
+  - Armies don't harm the villagers and golems of nations they aren't at war with.
+- **Outlines in battle.** While soldiers are fighting they glow, outlined in (about) their nation's team colour, so you can tell your soldiers from theirs, even through walls.
+- **Captains.** Every division in the world is led by a captain: a foot soldier of the nation with a visible name ("♚ Captain of 2nd Militia"), double health, and the nation's banner on his head. If the nation has no banner, he wears a banner of the colour closest to the nation's. Killing a captain costs his army 15 morale.
+- **Helmets in the nation's colour.** Every soldier wears a leather helmet dyed in its nation's colour (shown on zombies, skeletons and piglins). It also keeps the undead from burning in the sun.
+- **Healing potions.** A soldier below 40% health drinks a healing potion (you see the bottle in its hand) and heals half its health. Each soldier has two.
+
 ## 2.1.0 - Boats, better politics, easier letters
 - **Armies take boats.** Soldiers who have to cross water get into a boat, row across, step out on the other shore, and the boat is gone. Iron golems and ravagers are too big for boats; they wade or catch up.
 - **No more stuck soldiers.** A soldier who doesn't move closer to its place for 6 seconds (a hole, a wall, a tree) goes straight to its place.

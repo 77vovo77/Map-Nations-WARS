@@ -122,7 +122,7 @@ public final class WarsKings {
 		});
 	}
 
-	private static UUID nationOfKing(UUID entity) {
+	static UUID nationOfKing(UUID entity) {
 		for (Map.Entry<UUID, UUID> e : KINGS.entrySet()) {
 			if (e.getValue().equals(entity)) {
 				return e.getKey();
@@ -273,6 +273,7 @@ public final class WarsKings {
 			king.setHealth(80);
 		}
 
+		WarsTeams.join(level.getServer(), king, n);
 		king.setNoAi(true); // the king holds court; he doesn't wander
 		king.setPersistenceRequired();
 		king.setCustomName(kingName(n));

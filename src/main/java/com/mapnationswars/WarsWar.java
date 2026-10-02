@@ -124,10 +124,24 @@ public final class WarsWar {
 		});
 
 		// soldiers left over from before a restart are not part of any army any more
+		// (removed one tick later: removing entities while the game is loading them is not safe)
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
 			if (!LIVE.contains(entity.getUUID()) && entity.hasCustomName() && entity.getCustomName() != null
 					&& entity.getCustomName().getString().startsWith(SOLDIER_PREFIX)) {
-				entity.discard();
+				LEFTOVERS.add(entity);
+			}
+		});
+
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			if (!LEFTOVERS.isEmpty()) {
+				List<Entity> list = new ArrayList<>(LEFTOVERS);
+				LEFTOVERS.clear();
+
+				for (Entity e : list) {
+					if (!LIVE.contains(e.getUUID()) && e.isAlive()) {
+						e.discard();
+					}
+				}
 			}
 		});
 
@@ -1144,6 +1158,7 @@ public final class WarsWar {
 
 	/** Every mob the war spawned and still knows about; others with the war's name prefix are left-overs and go away. */
 	private static final java.util.Set<UUID> LIVE = new java.util.HashSet<>();
+	private static final List<Entity> LEFTOVERS = new ArrayList<>();
 	private static final Map<String, EntityType<?>> TYPES = new HashMap<>();
 
 	static void untrack(UUID id) {
