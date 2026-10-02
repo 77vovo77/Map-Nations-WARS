@@ -22,11 +22,18 @@ for j in $JARS; do
   unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "(EntityRendererRegistry|FabricDefaultAttributeRegistry|FabricEntityType)\.class$" | sed "s|^|$(basename $j): |" >> $OUT
 done
 p() { echo "== $1" >> $OUT; javap -public -cp "$CP" "$1" 2>&1 | grep -E "${2:-.}" | head -${3:-80} >> $OUT; }
-p net.minecraft.world.entity.EntityTypes " OAK_BOAT;| BOAT;| ZOMBIE_VILLAGER;" 4
-p net.minecraft.world.entity.Entity "startRiding|stopRiding|isPassenger\\(|getVehicle\\(|isInWater\\(|ejectPassengers|setDeltaMovement\\(double" 12
-p net.minecraft.world.item.Items " LEATHER_HELMET;| IRON_HELMET;| CHAINMAIL_HELMET;" 4
-echo "== boat classes" >> $OUT; grep -iE "/(Boat|AbstractBoat)\.class" classes.txt >> $OUT
-p net.minecraft.world.entity.vehicle.boat.Boat "Boat\\(" 3
+p net.minecraft.world.scores.Scoreboard "addPlayerTeam|getPlayerTeam|addPlayerToTeam|removePlayerFromTeam" 8
+p net.minecraft.world.scores.PlayerTeam "setColor|setAllowFriendlyFire|setSeeFriendlyInvisibles" 5
+p net.minecraft.server.MinecraftServer "getScoreboard" 3
+p net.minecraft.world.entity.Entity "getScoreboardName|setGlowingTag" 4
+p net.minecraft.core.component.DataComponents " DYED_COLOR;| BANNER_PATTERNS;| BASE_COLOR;" 4
+echo "== DyedItemColor" >> $OUT; javap -public -cp "$CP" net.minecraft.world.item.component.DyedItemColor 2>&1 | grep -E "DyedItemColor\\(" | head -3 >> $OUT
+p net.minecraft.world.item.ItemStack " set\\(|copyWithCount" 4
+p net.minecraft.core.registries.BuiltInRegistries " ITEM;" 2
+p net.minecraft.world.entity.LivingEntity "void heal\\(|getHealth\\(" 3
+p net.minecraft.world.item.Items " POTION;| WHITE_BANNER;" 3
+echo "== fabric ALLOW_DAMAGE" >> $OUT; for j in $JARS; do unzip -l "$j" 2>/dev/null | grep -q "ServerLivingEntityEvents\$AllowDamage.class" && javap -cp "$j" 'net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents$AllowDamage' >> $OUT 2>&1; done
+p net.minecraft.ChatFormatting " RED;| BLUE;| GREEN;" 3
 wc -c $OUT
 # emit as annotations (chunks)
 split -b 3500 $OUT chunk_
